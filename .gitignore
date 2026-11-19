@@ -7,3 +7,7 @@ build/
 crm.db
 crm.db-shm
 crm.db-wal
+niat.db
+niat.db-shm
+niat.db-wal
+*.db

@@ -1,56 +1,161 @@
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
+const fs = require('fs');
 const path = require('path');
 
-const dbPath = path.join(__dirname, '..', 'crm.db');
-const db = new Database(dbPath);
+const dbPath = path.join(__dirname, '..', 'niat.db');
 
-// Enable WAL mode for better concurrency and performance
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+let sqlInstance = null;
+let db = null;
+let saveTimer = null;
 
-// Initialize Database Schema
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('ADMIN', 'AMBASSADOR')),
-    status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE', 'INACTIVE')),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+function debouncedSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveToDisk();
+  }, 300);
+}
 
-  CREATE TABLE IF NOT EXISTS ambassadors (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL UNIQUE,
-    college TEXT NOT NULL,
-    referral_code TEXT NOT NULL UNIQUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
+function saveToDisk() {
+  if (!db) return;
+  try {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(dbPath, buffer);
+  } catch (err) {
+    console.error('Failed to save SQLite database to disk:', err);
+  }
+}
 
-  CREATE TABLE IF NOT EXISTS registrations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    registration_id TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    phone TEXT NOT NULL,
-    college TEXT NOT NULL,
-    city TEXT NOT NULL,
-    course TEXT NOT NULL,
-    year TEXT NOT NULL,
-    ambassador_id INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (ambassador_id) REFERENCES ambassadors(id) ON DELETE CASCADE
-  );
+// Wrapper for statement execution matching common API
+class StatementWrapper {
+  constructor(database, sql) {
+    this.database = database;
+    this.sql = sql;
+  }
 
-  -- Performance Indexes for 500+ registrations
-  CREATE INDEX IF NOT EXISTS idx_registrations_email ON registrations(email);
-  CREATE INDEX IF NOT EXISTS idx_registrations_phone ON registrations(phone);
-  CREATE INDEX IF NOT EXISTS idx_registrations_ambassador_id ON registrations(ambassador_id);
-  CREATE INDEX IF NOT EXISTS idx_registrations_created_at ON registrations(created_at);
-  CREATE INDEX IF NOT EXISTS idx_ambassadors_referral_code ON ambassadors(referral_code);
-`);
+  get(...params) {
+    let stmt = null;
+    try {
+      stmt = this.database.prepare(this.sql);
+      const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
+      if (flatParams.length > 0) {
+        stmt.bind(flatParams);
+      }
+      if (stmt.step()) {
+        const obj = stmt.getAsObject();
+        return obj;
+      }
+      return null;
+    } catch (err) {
+      console.error(`SQL GET Error in "${this.sql}":`, err.message);
+      throw err;
+    } finally {
+      if (stmt) stmt.free();
+    }
+  }
 
-module.exports = db;
+  all(...params) {
+    let stmt = null;
+    try {
+      stmt = this.database.prepare(this.sql);
+      const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
+      if (flatParams.length > 0) {
+        stmt.bind(flatParams);
+      }
+      const results = [];
+      while (stmt.step()) {
+        results.push(stmt.getAsObject());
+      }
+      return results;
+    } catch (err) {
+      console.error(`SQL ALL Error in "${this.sql}":`, err.message);
+      throw err;
+    } finally {
+      if (stmt) stmt.free();
+    }
+  }
+
+  run(...params) {
+    let stmt = null;
+    try {
+      stmt = this.database.prepare(this.sql);
+      const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
+      if (flatParams.length > 0) {
+        stmt.bind(flatParams);
+      }
+      stmt.step();
+      
+      const lastIdRes = this.database.exec("SELECT last_insert_rowid() as id;");
+      const lastInsertRowid = lastIdRes.length && lastIdRes[0].values.length ? lastIdRes[0].values[0][0] : 0;
+      const changesRes = this.database.exec("SELECT changes() as cnt;");
+      const changes = changesRes.length && changesRes[0].values.length ? changesRes[0].values[0][0] : 0;
+
+      debouncedSave();
+
+      return {
+        changes,
+        lastInsertRowid
+      };
+    } catch (err) {
+      console.error(`SQL RUN Error in "${this.sql}":`, err.message);
+      throw err;
+    } finally {
+      if (stmt) stmt.free();
+    }
+  }
+}
+
+class DatabaseManager {
+  constructor() {
+    this.rawDb = null;
+  }
+
+  setDatabase(rawDb) {
+    this.rawDb = rawDb;
+  }
+
+  prepare(sql) {
+    return new StatementWrapper(this.rawDb, sql);
+  }
+
+  exec(sql) {
+    const res = this.rawDb.exec(sql);
+    debouncedSave();
+    return res;
+  }
+
+  save() {
+    saveToDisk();
+  }
+}
+
+const dbManager = new DatabaseManager();
+
+async function initDatabase() {
+  if (db) return dbManager;
+
+  sqlInstance = await initSqlJs();
+
+  if (fs.existsSync(dbPath)) {
+    try {
+      const fileBuffer = fs.readFileSync(dbPath);
+      db = new sqlInstance.Database(fileBuffer);
+    } catch (e) {
+      console.warn('Could not read existing database, creating fresh one:', e.message);
+      db = new sqlInstance.Database();
+    }
+  } else {
+    db = new sqlInstance.Database();
+  }
+
+  // Set foreign keys
+  db.run('PRAGMA foreign_keys = ON;');
+  dbManager.setDatabase(db);
+  return dbManager;
+}
+
+module.exports = {
+  db: dbManager,
+  initDatabase,
+  saveToDisk
+};

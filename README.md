@@ -1,0 +1,104 @@
+# NIAT Connect – AI-Powered Student & Admission Management Portal
+**NextGen Institute of Advanced Technology (NIAT)**
+
+![NIAT Connect Architecture](https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1200&auto=format&fit=crop&q=80)
+
+---
+
+## 🏛️ Executive Summary
+
+**NIAT Connect** is a modern, responsive, enterprise-grade Higher Education Management Platform engineered for **NextGen Institute of Advanced Technology (NIAT)**. 
+
+The platform features two strictly segregated, role-isolated operational environments:
+1. **Admin Portal (`/admin/login`)**: Full-lifecycle Lead Management CRM, AI-powered lead qualification & intent scoring engine (0–100), visual analytics funnels, follow-up scheduler, institutional event publisher, and verified knowledge base manager.
+2. **Student Portal (`/login` / `/register`)**: Frictionless onboarding, 5-stage admission progress milestone tracker, interactive event calendar with 1-click registration passes, profile manager, verified admission handbook, and the **NIAT AI Assistant** powered by Retrieval-Augmented Generation (RAG).
+
+---
+
+## ⚡ Tech Stack Architecture
+
+| Layer | Technology | Key Capabilities |
+| :--- | :--- | :--- |
+| **Frontend UI** | React 19 + TypeScript | Modular component design, typed interfaces, interactive drawers & modals |
+| **Styling** | Tailwind CSS v4 | Deep institutional navy blue palette (`#0f172a`, `#1e3a8a`, `#2563eb`), glassmorphism, responsive |
+| **Data Visualization** | Recharts | 7-day intake velocity, multi-step conversion funnel, source breakdown, counsellor ratings |
+| **Backend API** | Node.js + Express.js | Structured RESTful architecture with role middleware, validation, error handling |
+| **Database Engine** | SQL.js / SQLite / PostgreSQL / Supabase | 14 relational tables, foreign key constraints, indexes, automatic disk persistence (`niat.db`) + `supabase_schema.sql` |
+| **AI Lead Scoring** | Custom Weighted Heuristic Engine | Transparent 5-factor scoring model (0–100), Hot/Warm/Cold/Unqualified segmentation, human override |
+| **AI Chatbot** | Verified RAG + Google Gemini API | Semantic knowledge matching against verified handbook, official citations, counsellor escalation fallback |
+
+---
+
+## 🔑 Pre-Seeded Demo Credentials
+
+Both portals include **1-Click Auto-Fill Demo Credentials** on their respective login screens for instant evaluator testing:
+
+### 1. Admission Administrator
+- **Portal URL**: `/admin/login`
+- **Email**: `admin@niat.edu.in`
+- **Password**: `Admin@123`
+- **Role**: `ADMIN` (Full access to CRM, AI Lead Filtration, Analytics, Events, Knowledge Base)
+
+### 2. Prospective Students
+- **Portal URL**: `/login` (or `/student/login`)
+- **Demo Account 1**: `rahul.sharma@gmail.com` / `Student@123` (Class 12 PCM, B.Tech CSE (AI & ML))
+- **Demo Account 2**: `priya.patel@gmail.com` / `Student@123` (B.Tech Data Science & Analytics)
+- **Demo Account 3**: `ananya.verma@gmail.com` / `Student@123` (B.Tech Software Engineering)
+- **Role**: `STUDENT` (Application tracker, Calendar tickets, AI Chatbot, 1-on-1 Counselling)
+
+---
+
+## 📊 Database Schema (14 Relational Tables)
+
+1. `users`: Credentials, roles (`ADMIN` / `STUDENT`), status, profile avatar.
+2. `user_roles`: Role-based access control records and permissions.
+3. `student_profiles`: 12th marks, passing year, city/state, dream career, application stage (`INQUIRY` -> `ADMITTED`).
+4. `counsellors`: Faculty advisors, specialization, caseload, ratings.
+5. `leads`: Prospective students, interest levels, counselling status, source, notes.
+6. `lead_scores`: AI score (0-100), segment (`Hot`, `Warm`, `Cold`, `Unqualified`), breakdown JSON, human override records.
+7. `lead_activities`: Immutable audit log for status changes, notes, follow-up scheduling.
+8. `follow_ups`: Scheduled student phone calls, video counselling sessions, reminders.
+9. `events`: Institutional webinars, AI masterclasses, parent orientations, capacity, status.
+10. `event_registrations`: Confirmed student tickets (`NIAT-EVT-XXXX`) and attendance.
+11. `notifications`: Real-time role-targeted alerts for admins and students.
+12. `chatbot_conversations`: Persistent student chat sessions.
+13. `chatbot_messages`: Chat interactions with citations and metadata.
+14. `knowledge_base_documents`: Verified official handbook articles powering RAG semantic search.
+
+*Full Supabase/PostgreSQL native DDL available in `supabase_schema.sql`.*
+
+---
+
+## 🤖 Core AI Modules
+
+### A. Intelligent Lead Qualification Engine
+Automatically segments all prospective students:
+- **Hot Leads (Score 75–100)**: Immediate intake year, high admission interest, webinar/fair attendance, PCM eligibility match.
+- **Warm Leads (Score 45–74)**: Moderate intent requiring follow-up or curriculum guidance.
+- **Cold Leads (Score 20–44)**: Early research phase or casual social media inquiry.
+- **Unqualified Leads (Score 0–19)**: Does not meet minimum 10+2 science criteria or out of timeline.
+
+> **Institutional Ethical AI Policy**: Embedded in system logic and admin dashboards — AI scores optimize outreach priority and **never automatically disqualify or reject applicants** without human review.
+
+### B. NIAT AI Admission Assistant (RAG Engine)
+- Available full-screen (`/student/ai-assistant`) or via floating assistant pill.
+- Grounds answers strictly in verified NIAT documents.
+- Automatically cites official sources (e.g., `[Source: NIAT Admissions Handbook 2026, Section 2.1]`).
+- Integrates optional `GEMINI_API_KEY` for advanced generative synthesis, with deterministic verified RAG fallback.
+- Offers 1-click **Connect with Human Counsellor** escalation when an inquiry exceeds verified records.
+
+---
+
+## 🚀 Running the Project Locally
+
+```bash
+# 1. Navigate to project directory
+cd ambassador-crm-portal
+
+# 2. Start both Node Express Backend (port 5000) and Vite Frontend (port 5173)
+npm run dev
+
+# 3. Access in browser:
+# Student Portal: http://localhost:5173/login
+# Admin Portal:   http://localhost:5173/admin/login
+```

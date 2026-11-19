@@ -1,55 +1,74 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Sidebar } from './components/Sidebar';
+import { Navbar } from './components/Navbar';
+import { FloatingChatbot } from './components/FloatingChatbot';
 
-// Pages
-import { Login } from './pages/Login';
-import { Register } from './pages/Register';
+// Auth Pages
+import { AdminLogin } from './pages/auth/AdminLogin';
+import { StudentLogin } from './pages/auth/StudentLogin';
+import { StudentRegister } from './pages/auth/StudentRegister';
+import { ForgotPassword } from './pages/auth/ForgotPassword';
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
-import { AmbassadorManagement } from './pages/admin/AmbassadorManagement';
-import { RegistrationManagement } from './pages/admin/RegistrationManagement';
-import { Leaderboard } from './pages/admin/Leaderboard';
-import { Reports } from './pages/admin/Reports';
-import { Settings } from './pages/admin/Settings';
+import { LeadManagement } from './pages/admin/LeadManagement';
+import { AILeadFiltration } from './pages/admin/AILeadFiltration';
+import { LeadAnalytics } from './pages/admin/LeadAnalytics';
+import { FollowUpManagement } from './pages/admin/FollowUpManagement';
+import { EventManager } from './pages/admin/EventManager';
+import { KnowledgeBaseManager } from './pages/admin/KnowledgeBaseManager';
 
-// Ambassador Pages
-import { AmbassadorDashboard } from './pages/ambassador/AmbassadorDashboard';
-import { MyRegistrations } from './pages/ambassador/MyRegistrations';
-import { AmbassadorLeaderboard } from './pages/ambassador/AmbassadorLeaderboard';
-import { AmbassadorProfile } from './pages/ambassador/AmbassadorProfile';
+// Student Pages
+import { StudentDashboard } from './pages/student/StudentDashboard';
+import { EventCalendar } from './pages/student/EventCalendar';
+import { AIChatbot } from './pages/student/AIChatbot';
+import { StudentProfilePage } from './pages/student/StudentProfile';
+import { FAQAndGuidelines } from './pages/student/FAQAndGuidelines';
 
 const AuthenticatedLayout: React.FC = () => {
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+      {/* Sidebar Navigation */}
       <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Routes>
-          {/* Admin Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/ambassadors" element={<AmbassadorManagement />} />
-            <Route path="/admin/registrations" element={<RegistrationManagement />} />
-            <Route path="/admin/leaderboard" element={<Leaderboard />} />
-            <Route path="/admin/reports" element={<Reports />} />
-            <Route path="/admin/settings" element={<Settings />} />
-          </Route>
 
-          {/* Ambassador Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['AMBASSADOR']} />}>
-            <Route path="/ambassador/dashboard" element={<AmbassadorDashboard />} />
-            <Route path="/ambassador/registrations" element={<MyRegistrations />} />
-            <Route path="/ambassador/leaderboard" element={<AmbassadorLeaderboard />} />
-            <Route path="/ambassador/profile" element={<AmbassadorProfile />} />
-          </Route>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <Navbar />
 
-          {/* Root Fallback */}
-          <Route path="/" element={<HomeRedirect />} />
-          <Route path="*" element={<HomeRedirect />} />
-        </Routes>
+        <main className="flex-1 overflow-y-auto bg-slate-50/70">
+          <Routes>
+            {/* Admin Routes */}
+            <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/leads" element={<LeadManagement />} />
+              <Route path="/admin/ai-leads" element={<AILeadFiltration />} />
+              <Route path="/admin/analytics" element={<LeadAnalytics />} />
+              <Route path="/admin/follow-ups" element={<FollowUpManagement />} />
+              <Route path="/admin/events" element={<EventManager />} />
+              <Route path="/admin/knowledge-base" element={<KnowledgeBaseManager />} />
+            </Route>
+
+            {/* Student Routes */}
+            <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
+              <Route path="/student/dashboard" element={<StudentDashboard />} />
+              <Route path="/student/calendar" element={<EventCalendar />} />
+              <Route path="/student/ai-assistant" element={<AIChatbot />} />
+              <Route path="/student/profile" element={<StudentProfilePage />} />
+              <Route path="/student/faq" element={<FAQAndGuidelines />} />
+            </Route>
+
+            {/* Default Catch-all */}
+            <Route path="/" element={<HomeRedirect />} />
+            <Route path="*" element={<HomeRedirect />} />
+          </Routes>
+        </main>
+
+        {/* Global Student Floating Chatbot */}
+        <FloatingChatbot />
       </div>
     </div>
   );
@@ -62,29 +81,30 @@ const HomeRedirect: React.FC = () => {
   return user.role === 'ADMIN' ? (
     <Navigate to="/admin/dashboard" replace />
   ) : (
-    <Navigate to="/ambassador/dashboard" replace />
+    <Navigate to="/student/dashboard" replace />
   );
 };
 
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Unauthenticated Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          
-          {/* Canonical Redirects for Legacy / Alternate Routes */}
-          <Route path="/student-register" element={<Navigate to="/register" replace />} />
-          <Route path="/public-register" element={<Navigate to="/register" replace />} />
-          <Route path="/register-form" element={<Navigate to="/register" replace />} />
-          <Route path="/register/student" element={<Navigate to="/register" replace />} />
+      <NotificationProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Separate Public Authentication Systems */}
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/forgot-password" element={<ForgotPassword />} />
+            
+            <Route path="/login" element={<StudentLogin />} />
+            <Route path="/student/login" element={<StudentLogin />} />
+            <Route path="/register" element={<StudentRegister />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
 
-          {/* Protected Application Routes */}
-          <Route path="/*" element={<AuthenticatedLayout />} />
-        </Routes>
-      </BrowserRouter>
+            {/* Authenticated Protected Shell */}
+            <Route path="/*" element={<AuthenticatedLayout />} />
+          </Routes>
+        </BrowserRouter>
+      </NotificationProvider>
     </AuthProvider>
   );
 };

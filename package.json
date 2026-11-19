@@ -1,18 +1,17 @@
 {
-  "name": "nextwave.crm",
+  "name": "niat-connect",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "NIAT Connect - AI-Powered Student & Admission Management Portal",
+  "main": "server/index.js",
   "scripts": {
     "dev": "concurrently \"node server/index.js\" \"vite\"",
     "server": "node server/index.js",
     "client": "vite",
-    "seed": "node server/seed.js",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["niat", "admission", "crm", "ai", "student-portal"],
+  "author": "NIAT",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
@@ -25,7 +24,6 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^13.0.3",
     "concurrently": "^10.0.5",
     "cors": "^2.8.6",
     "express": "^5.2.1",
@@ -35,7 +33,7 @@
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4",
     "recharts": "^3.10.1",
-    "sqlite3": "^6.0.1",
+    "sql.js": "^1.12.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.2"
