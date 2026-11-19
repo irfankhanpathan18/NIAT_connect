@@ -24,8 +24,8 @@ The platform features two strictly segregated, role-isolated operational environ
 | **Data Visualization** | Recharts | 7-day intake velocity, multi-step conversion funnel, source breakdown, counsellor ratings |
 | **Backend API** | Node.js + Express.js | Structured RESTful architecture with role middleware, validation, error handling |
 | **Database Engine** | SQL.js / SQLite / PostgreSQL / Supabase | 14 relational tables, foreign key constraints, indexes, automatic disk persistence (`niat.db`) + `supabase_schema.sql` |
-| **AI Lead Scoring** | Custom Weighted Heuristic Engine | Transparent 5-factor scoring model (0–100), Hot/Warm/Cold/Unqualified segmentation, human override |
-| **AI Chatbot** | Verified RAG + Google Gemini API | Semantic knowledge matching against verified handbook, official citations, counsellor escalation fallback |
+| **AI Lead Scoring** | Custom Weighted Heuristic Engine | Transparent 6-factor scoring model (0–100) incl. PCM eligibility & Class 12 marks, Hot/Warm/Cold/Unqualified segmentation, human override |
+| **AI Chatbot** | Verified RAG + Google Gemini API | Keyword + synonym retrieval over the verified handbook, conversation memory, official citations, counsellor escalation fallback |
 
 ---
 
@@ -76,7 +76,18 @@ Automatically segments all prospective students:
 - **Hot Leads (Score 75–100)**: Immediate intake year, high admission interest, webinar/fair attendance, PCM eligibility match.
 - **Warm Leads (Score 45–74)**: Moderate intent requiring follow-up or curriculum guidance.
 - **Cold Leads (Score 20–44)**: Early research phase or casual social media inquiry.
-- **Unqualified Leads (Score 0–19)**: Does not meet minimum 10+2 science criteria or out of timeline.
+- **Unqualified Leads (Score 0–19)**: Does not meet the B.Tech academic requirements (Physics + Mathematics in Class 12, or below the 55% minimum aggregate). These are flagged for human review, never rejected automatically.
+
+| Factor | Max points |
+| :--- | :--- |
+| Admission interest level | 25 |
+| Timeline urgency (passing year vs. current intake cycle) | 20 |
+| Counselling & engagement status | 20 |
+| Lead source intent | 10 |
+| Eligibility & program fit (PCM / diploma / stream) | 15 |
+| Academic performance (Class 12 aggregate) | 10 |
+
+The intake year is derived from the current date (the cycle rolls over in August) and can be pinned with `ADMISSION_INTAKE_YEAR`.
 
 > **Institutional Ethical AI Policy**: Embedded in system logic and admin dashboards — AI scores optimize outreach priority and **never automatically disqualify or reject applicants** without human review.
 
@@ -84,8 +95,40 @@ Automatically segments all prospective students:
 - Available full-screen (`/student/ai-assistant`) or via floating assistant pill.
 - Grounds answers strictly in verified NIAT documents.
 - Automatically cites official sources (e.g., `[Source: NIAT Admissions Handbook 2026, Section 2.1]`).
-- Integrates optional `GEMINI_API_KEY` for advanced generative synthesis, with deterministic verified RAG fallback.
+- Retrieval ignores filler words, matches whole words, and maps everyday phrasing to handbook terms (e.g. "cost" → fees, "stay" → hostel). Off-topic questions get an honest "no verified record" answer instead of a random article.
+- Integrates optional `GEMINI_API_KEY` for generative answers (model set by `GEMINI_MODEL`, default `gemini-2.5-flash`) using the last 10 messages as context, with deterministic verified RAG fallback.
 - Offers 1-click **Connect with Human Counsellor** escalation when an inquiry exceeds verified records.
+
+### C. NIAT AI Admission Agent (tool calling)
+The assistant is an **agent**, not just a chatbot: the model decides which tools to call, runs them for the signed-in student, and explains the result. Every action shows up in the chat as an "Agent actions" chip.
+
+| Tool | What it does | Type |
+| :--- | :--- | :--- |
+| `search_knowledge_base` | Searches the verified handbook | Read |
+| `check_eligibility` | Checks PCM stream, marks and passing year against the B.Tech rules (uses the profile when details are missing) | Read |
+| `list_upcoming_events` | Lists upcoming events with seats left | Read |
+| `register_for_event` | Registers the student and issues a ticket | **Action** |
+| `get_my_application_status` | Application stage, academics and tickets | Read |
+| `request_counselling` | Books a counsellor and notifies admins | **Action** |
+| `lookup_pincode` | India Post pincode directory (public data) | Public API |
+| `analyze_github_profile` | GitHub public profile review for the Young Innovator Scholarship (public data) | Public API |
+
+**LLM providers** (picked automatically, or forced with `AGENT_PROVIDER=claude|gemini|offline`):
+1. **Claude** – when `ANTHROPIC_API_KEY` is set. Uses the official `@anthropic-ai/sdk` tool runner (`CLAUDE_MODEL`, default `claude-opus-5-5`; `CLAUDE_EFFORT`, default `low`) with server-side refusal fallback enabled.
+2. **Gemini** – when `GEMINI_API_KEY` is set. Function-calling loop over the Gemini REST API.
+3. **Offline** – no key needed. A rule-based planner calls the same tools, so registration, eligibility checks and lookups still work in a demo. If an LLM call fails, the agent falls back to this.
+
+### D. Multilingual (English, हिन्दी, தமிழ், తెలుగు, ಕನ್ನಡ, മലയാളം)
+- Language picker in the assistant, remembered per browser; the floating assistant uses the same choice.
+- The language is also detected from the script of the message, so a student can just type in Tamil or Telugu.
+- With an LLM, replies are written in the student's language. Offline, fixed replies are translated and handbook content is shown in English with a note.
+- Native-language keywords (e.g. கட்டணம், ఫీజు, छात्रवृत्ति) are mapped to handbook terms so search works in every language.
+- **Voice input** through the browser's Web Speech API in all six languages (Chrome/Edge).
+
+### E. Public data integrations
+- **India Post** (`api.postalpincode.in`): the registration form auto-fills city and state from a pincode (`GET /api/public/pincode/:pincode`), and the agent can look up pincodes.
+- **GitHub** (`api.github.com`): the agent reviews a student's public repositories, languages, stars and recent activity and gives an indicative readiness score for the Young Innovator Scholarship. Set `GITHUB_TOKEN` to raise the rate limit (60 requests/hour without it).
+- Responses are cached for an hour, requests time out after 8 seconds, and failures are reported politely instead of breaking the chat.
 
 ---
 
@@ -95,10 +138,16 @@ Automatically segments all prospective students:
 # 1. Navigate to project directory
 cd ambassador-crm-portal
 
-# 2. Start both Node Express Backend (port 5000) and Vite Frontend (port 5173)
+# 2. Install dependencies
+npm install
+
+# 3. Start both Node Express Backend (port 5000) and Vite Frontend (port 5173)
 npm run dev
 
-# 3. Access in browser:
+# Run the AI service tests
+npm test
+
+# 4. Access in browser:
 # Student Portal: http://localhost:5173/login
 # Admin Portal:   http://localhost:5173/admin/login
 ```

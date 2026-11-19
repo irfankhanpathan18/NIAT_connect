@@ -132,6 +132,7 @@ router.post('/leads', (req, res) => {
     phone,
     current_education,
     class_12_passing_year,
+    class_12_percentage,
     city,
     state,
     interested_program,
@@ -148,33 +149,41 @@ router.post('/leads', (req, res) => {
   }
 
   try {
+    const newLead = {
+      student_name: student_name.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      current_education: current_education || '12th Pursuing (Science PCM)',
+      class_12_passing_year: class_12_passing_year ? parseInt(class_12_passing_year, 10) : 2026,
+      class_12_percentage: class_12_percentage ? parseFloat(class_12_percentage) : null,
+      city: city || 'Not Specified',
+      state: state || 'Not Specified',
+      interested_program: interested_program || 'B.Tech CSE (AI & ML)',
+      lead_source: lead_source || 'Direct Outreach',
+      admission_interest_level: admission_interest_level || 'Medium',
+      counselling_status: counselling_status || 'New',
+      assigned_counsellor_id: assigned_counsellor_id ? parseInt(assigned_counsellor_id, 10) : null,
+      follow_up_date: follow_up_date || null,
+      notes: notes || null
+    };
+
     const leadRes = db.prepare(`
       INSERT INTO leads (
-        student_name, email, phone, current_education, class_12_passing_year,
+        student_name, email, phone, current_education, class_12_passing_year, class_12_percentage,
         city, state, interested_program, lead_source, admission_interest_level,
         counselling_status, assigned_counsellor_id, follow_up_date, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      student_name.trim(),
-      email.trim().toLowerCase(),
-      phone.trim(),
-      current_education || '12th Pursuing (Science PCM)',
-      class_12_passing_year ? parseInt(class_12_passing_year, 10) : 2026,
-      city || 'Not Specified',
-      state || 'Not Specified',
-      interested_program || 'B.Tech CSE (AI & ML)',
-      lead_source || 'Direct Outreach',
-      admission_interest_level || 'Medium',
-      counselling_status || 'New',
-      assigned_counsellor_id ? parseInt(assigned_counsellor_id, 10) : null,
-      follow_up_date || null,
-      notes || null
+      newLead.student_name, newLead.email, newLead.phone, newLead.current_education,
+      newLead.class_12_passing_year, newLead.class_12_percentage, newLead.city, newLead.state,
+      newLead.interested_program, newLead.lead_source, newLead.admission_interest_level,
+      newLead.counselling_status, newLead.assigned_counsellor_id, newLead.follow_up_date, newLead.notes
     );
 
     const leadId = leadRes.lastInsertRowid;
 
-    // AI Lead Evaluation
-    const aiResult = evaluateLeadScore(req.body);
+    // AI Lead Evaluation (on the stored values, so defaults are scored too)
+    const aiResult = evaluateLeadScore(newLead);
     db.prepare(`
       INSERT INTO lead_scores (lead_id, score, ai_classification, is_manually_overridden, breakdown_json)
       VALUES (?, ?, ?, 0, ?)
@@ -223,6 +232,7 @@ router.put('/leads/:id', (req, res) => {
     phone,
     current_education,
     class_12_passing_year,
+    class_12_percentage,
     city,
     state,
     interested_program,
@@ -238,7 +248,7 @@ router.put('/leads/:id', (req, res) => {
     db.prepare(`
       UPDATE leads SET
         student_name = ?, email = ?, phone = ?, current_education = ?,
-        class_12_passing_year = ?, city = ?, state = ?, interested_program = ?,
+        class_12_passing_year = ?, class_12_percentage = ?, city = ?, state = ?, interested_program = ?,
         lead_source = ?, admission_interest_level = ?, counselling_status = ?,
         assigned_counsellor_id = ?, follow_up_date = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
@@ -248,6 +258,7 @@ router.put('/leads/:id', (req, res) => {
       phone || existingLead.phone,
       current_education || existingLead.current_education,
       class_12_passing_year ? parseInt(class_12_passing_year, 10) : existingLead.class_12_passing_year,
+      class_12_percentage !== undefined && class_12_percentage !== '' ? parseFloat(class_12_percentage) : existingLead.class_12_percentage,
       city || existingLead.city,
       state || existingLead.state,
       interested_program || existingLead.interested_program,
@@ -263,8 +274,8 @@ router.put('/leads/:id', (req, res) => {
     // Check if score is overridden
     const scoreRow = db.prepare('SELECT is_manually_overridden FROM lead_scores WHERE lead_id = ?').get(leadId);
     if (!scoreRow || scoreRow.is_manually_overridden === 0) {
-      const mergedLead = { ...existingLead, ...req.body };
-      const aiResult = evaluateLeadScore(mergedLead);
+      const updatedLead = db.prepare('SELECT * FROM leads WHERE id = ?').get(leadId);
+      const aiResult = evaluateLeadScore(updatedLead);
       db.prepare(`
         UPDATE lead_scores SET
           score = ?, ai_classification = ?, breakdown_json = ?, evaluated_at = CURRENT_TIMESTAMP
@@ -320,16 +331,17 @@ router.post('/leads/import-csv', (req, res) => {
     try {
       const leadRes = db.prepare(`
         INSERT INTO leads (
-          student_name, email, phone, current_education, class_12_passing_year,
+          student_name, email, phone, current_education, class_12_passing_year, class_12_percentage,
           city, state, interested_program, lead_source, admission_interest_level,
           counselling_status, assigned_counsellor_id, follow_up_date, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         item.student_name.trim(),
         item.email.trim().toLowerCase(),
         item.phone.trim(),
         item.current_education || '12th Pursuing (Science PCM)',
         item.class_12_passing_year ? parseInt(item.class_12_passing_year, 10) : 2026,
+        item.class_12_percentage ? parseFloat(item.class_12_percentage) : null,
         item.city || 'Not Specified',
         item.state || 'Not Specified',
         item.interested_program || 'B.Tech CSE (AI & ML)',

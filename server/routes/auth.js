@@ -168,6 +168,7 @@ router.post('/student/register', (req, res) => {
     phone: trimmedPhone,
     current_education: current_education || '12th Pursuing (Science PCM)',
     class_12_passing_year: class_12_passing_year ? parseInt(class_12_passing_year, 10) : 2026,
+    class_12_percentage: req.body.class_12_percentage ? parseFloat(req.body.class_12_percentage) : null,
     city: city || 'Not Specified',
     state: state || 'Not Specified',
     interested_program: interested_program || 'B.Tech CSE (AI & ML)',
@@ -181,13 +182,13 @@ router.post('/student/register', (req, res) => {
 
   const leadRes = db.prepare(`
     INSERT INTO leads (
-      student_name, email, phone, current_education, class_12_passing_year,
+      student_name, email, phone, current_education, class_12_passing_year, class_12_percentage,
       city, state, interested_program, lead_source, admission_interest_level,
       counselling_status, assigned_counsellor_id, follow_up_date, notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     leadObj.student_name, leadObj.email, leadObj.phone, leadObj.current_education,
-    leadObj.class_12_passing_year, leadObj.city, leadObj.state, leadObj.interested_program,
+    leadObj.class_12_passing_year, leadObj.class_12_percentage, leadObj.city, leadObj.state, leadObj.interested_program,
     leadObj.lead_source, leadObj.admission_interest_level, leadObj.counselling_status,
     leadObj.assigned_counsellor_id, leadObj.follow_up_date, leadObj.notes
   );

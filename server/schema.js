@@ -60,6 +60,7 @@ function initSchema(db) {
       phone TEXT NOT NULL,
       current_education TEXT NOT NULL,
       class_12_passing_year INTEGER NOT NULL,
+      class_12_percentage REAL,
       city TEXT NOT NULL,
       state TEXT NOT NULL,
       interested_program TEXT NOT NULL,
@@ -196,6 +197,12 @@ function initSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
     CREATE INDEX IF NOT EXISTS idx_knowledge_category ON knowledge_base_documents(category);
   `);
+
+  // Migrations for databases created before a column existed
+  const leadColumns = db.prepare('PRAGMA table_info(leads)').all().map(c => c.name);
+  if (!leadColumns.includes('class_12_percentage')) {
+    db.exec('ALTER TABLE leads ADD COLUMN class_12_percentage REAL');
+  }
 }
 
 module.exports = { initSchema };

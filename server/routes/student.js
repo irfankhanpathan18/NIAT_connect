@@ -1,7 +1,8 @@
 const express = require('express');
 const { db } = require('../db');
 const { verifyToken, requireStudent } = require('../middleware/auth');
-const { generateAdmissionChatResponse } = require('../services/aiService');
+const { runAgent } = require('../services/agent');
+const { registerForEvent, requestCounselling } = require('../services/studentActions');
 
 const router = express.Router();
 
@@ -172,46 +173,24 @@ router.get('/events', (req, res) => {
 });
 
 router.post('/events/:id/register', (req, res) => {
-  const studentId = req.user.id;
-  const eventId = parseInt(req.params.id, 10);
-
   try {
-    const event = db.prepare("SELECT * FROM events WHERE id = ? AND status = 'PUBLISHED'").get(eventId);
-    if (!event) {
+    const result = registerForEvent(db, req.user.id, req.params.id);
+    if (result.status === 'not_found') {
       return res.status(404).json({ error: 'Event not found or not published' });
     }
-
-    // Check if already registered
-    const existing = db.prepare('SELECT * FROM event_registrations WHERE event_id = ? AND student_id = ?').get(eventId, studentId);
-    if (existing) {
-      return res.status(409).json({ error: 'You are already registered for this event.', ticketNumber: existing.ticket_number });
+    if (result.status === 'already_registered') {
+      return res.status(409).json({ error: 'You are already registered for this event.', ticketNumber: result.ticketNumber });
     }
-
-    // Check capacity
-    const regCount = db.prepare('SELECT COUNT(*) as count FROM event_registrations WHERE event_id = ?').get(eventId).count;
-    if (regCount >= event.capacity) {
+    if (result.status === 'full') {
       return res.status(400).json({ error: 'This event has reached full capacity. Please choose another session or contact admissions.' });
     }
 
-    const ticketNumber = `NIAT-${eventId}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    db.prepare(`
-      INSERT INTO event_registrations (event_id, student_id, ticket_number)
-      VALUES (?, ?, ?)
-    `).run(eventId, studentId, ticketNumber);
-
-    // Notify student
-    db.prepare(`
-      INSERT INTO notifications (user_id, target_role, title, message, type, link)
-      VALUES (?, 'STUDENT', 'Event Registration Confirmed!', ?, 'EVENT', '/student/calendar')
-    `).run(studentId, `You are confirmed for "${event.title}". Ticket: ${ticketNumber}.`);
-
     return res.status(201).json({
       message: 'Registration successful! Your pass has been generated.',
-      ticketNumber,
-      eventTitle: event.title,
-      eventDate: event.event_date,
-      venueOrLink: event.venue_or_link
+      ticketNumber: result.ticketNumber,
+      eventTitle: result.event.title,
+      eventDate: result.event.event_date,
+      venueOrLink: result.event.venue_or_link
     });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to register for event: ' + err.message });
@@ -256,32 +235,13 @@ router.get('/my-registrations', (req, res) => {
 // ==========================================
 
 router.post('/counselling/request', (req, res) => {
-  const studentId = req.user.id;
-  const { preferredDate, preferredTime, topic, parentJoining } = req.body;
+  const { preferredDate, preferredTime, topic } = req.body;
 
   try {
-    const user = db.prepare('SELECT name, email, phone FROM users WHERE id = ?').get(studentId);
-
-    // Update application stage to counselling
-    db.prepare(`
-      UPDATE student_profiles SET 
-        application_stage = 'COUNSELLING_COMPLETED',
-        counselling_preferred_time = ?
-      WHERE user_id = ?
-    `).run(preferredTime || 'Preferred Evening', studentId);
-
-    // Notify Admin
-    db.prepare(`
-      INSERT INTO notifications (user_id, target_role, title, message, type, link)
-      VALUES (NULL, 'ADMIN', 'New Student Counselling Requested', ?, 'COUNSELLING', '/admin/follow-ups')
-    `).run(`Student ${user.name} (${user.email}) requested counselling on ${preferredDate || 'Upcoming Date'}. Topic: ${topic || 'General Admission Guidance'}.`);
-
-    // Notify Student
-    db.prepare(`
-      INSERT INTO notifications (user_id, target_role, title, message, type, link)
-      VALUES (?, 'STUDENT', 'Counselling Request Received', 'An authorized NIAT Admission Counsellor has been assigned to your profile and will connect with you.', 'INFO', '/student/dashboard')
-    `).run(studentId);
-
+    const result = requestCounselling(db, req.user.id, { preferredDate, preferredTime, topic });
+    if (result.status === 'not_found') {
+      return res.status(404).json({ error: 'Student account not found' });
+    }
     return res.json({
       message: 'Your counselling request has been registered. An admission officer will contact you within 24 hours.'
     });
@@ -296,56 +256,65 @@ router.post('/counselling/request', (req, res) => {
 
 router.post('/chat', async (req, res) => {
   const studentId = req.user.id;
-  const { message, conversationId } = req.body;
+  const { message, conversationId, language } = req.body;
 
-  if (!message || !message.trim()) {
+  if (typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Message cannot be empty.' });
   }
+  const text = message.trim().slice(0, 2000);
 
   try {
-    // 1. Get or create conversation
-    let convId = conversationId;
+    // 1. Use the given conversation only if it belongs to this student; otherwise start a new one
+    let convId = null;
+    if (conversationId) {
+      const owned = db.prepare('SELECT id FROM chatbot_conversations WHERE id = ? AND user_id = ?').get(conversationId, studentId);
+      if (owned) convId = owned.id;
+    }
     if (!convId) {
       const convRes = db.prepare(`
         INSERT INTO chatbot_conversations (user_id, title)
         VALUES (?, ?)
-      `).run(studentId, message.substring(0, 40) + '...');
+      `).run(studentId, text.substring(0, 40) + '...');
       convId = convRes.lastInsertRowid;
     }
 
-    // 2. Save user message
+    // 2. Previous messages (most recent 10, oldest first) as context
+    const history = db.prepare(`
+      SELECT sender, message FROM chatbot_messages
+      WHERE conversation_id = ? ORDER BY id DESC LIMIT 10
+    `).all(convId).reverse();
+
+    // 3. Save user message
     db.prepare(`
       INSERT INTO chatbot_messages (conversation_id, sender, message)
       VALUES (?, 'user', ?)
-    `).run(convId, message.trim());
+    `).run(convId, text);
 
-    // 3. Retrieve active verified knowledge base
+    // 4. Run the admission agent (tool calling + verified knowledge base)
     const knowledgeDocs = db.prepare('SELECT * FROM knowledge_base_documents WHERE is_active = 1').all();
+    const result = await runAgent({ db, user: req.user, message: text, history, language, knowledgeDocs });
 
-    // 4. Retrieve conversation history
-    const history = db.prepare(`
-      SELECT sender, message FROM chatbot_messages 
-      WHERE conversation_id = ? ORDER BY created_at ASC LIMIT 10
-    `).all(convId);
-
-    // 5. Generate AI response (using RAG / Gemini)
-    const aiResponse = await generateAdmissionChatResponse(message.trim(), history, knowledgeDocs);
-
-    // 6. Save assistant message
+    // 5. Save assistant message
     db.prepare(`
       INSERT INTO chatbot_messages (conversation_id, sender, message, sources_json)
       VALUES (?, 'assistant', ?, ?)
-    `).run(convId, aiResponse.reply, JSON.stringify(aiResponse.sources));
+    `).run(convId, result.reply, JSON.stringify(result.sources));
+    db.prepare('UPDATE chatbot_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(convId);
 
     return res.json({
       conversationId: convId,
-      reply: aiResponse.reply,
-      sources: aiResponse.sources,
-      isGeminiPowered: aiResponse.isGeminiPowered,
-      suggestCounselling: aiResponse.suggestCounselling || false
+      reply: result.reply,
+      sources: result.sources,
+      toolCalls: result.toolCalls.map(c => ({ name: c.name, label: c.label, ok: c.ok, isAction: Boolean(c.isAction) })),
+      provider: result.provider,
+      model: result.model,
+      language: result.language,
+      isGeminiPowered: result.provider === 'gemini',
+      suggestCounselling: result.suggestCounselling || false
     });
   } catch (err) {
-    return res.status(500).json({ error: 'Chatbot service error: ' + err.message });
+    console.error('Chat agent error:', err);
+    return res.status(500).json({ error: 'Chatbot service error. Please try again.' });
   }
 });
 

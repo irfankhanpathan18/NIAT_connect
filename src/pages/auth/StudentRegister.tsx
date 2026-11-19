@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getApiUrl } from '../../config/api';
 import { GraduationCap, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
 
 export const StudentRegister: React.FC = () => {
@@ -21,6 +22,31 @@ export const StudentRegister: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pincode, setPincode] = useState('');
+  const [pincodeStatus, setPincodeStatus] = useState<{ type: 'idle' | 'loading' | 'ok' | 'error'; text?: string }>({ type: 'idle' });
+
+  // Auto-fill city and state from the India Post pincode directory
+  const handlePincodeChange = async (value: string) => {
+    const pin = value.replace(/\D/g, '').slice(0, 6);
+    setPincode(pin);
+    if (pin.length !== 6) {
+      setPincodeStatus({ type: 'idle' });
+      return;
+    }
+    setPincodeStatus({ type: 'loading', text: 'Looking up pincode...' });
+    try {
+      const res = await fetch(getApiUrl(`/api/public/pincode/${pin}`));
+      const data = await res.json();
+      if (res.ok) {
+        setFormData(prev => ({ ...prev, city: data.district, state: data.state }));
+        setPincodeStatus({ type: 'ok', text: `${data.district}, ${data.state} (India Post)` });
+      } else {
+        setPincodeStatus({ type: 'error', text: res.status === 404 ? 'Pincode not found. Please enter city and state manually.' : 'Lookup unavailable. Please enter city and state manually.' });
+      }
+    } catch {
+      setPincodeStatus({ type: 'error', text: 'Lookup unavailable. Please enter city and state manually.' });
+    }
+  };
   const { registerStudent } = useAuth();
   const navigate = useNavigate();
 
@@ -171,6 +197,23 @@ export const StudentRegister: React.FC = () => {
                     placeholder="e.g. 88.5"
                     className="mt-1 block w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">Pincode (auto-fills city &amp; state)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    name="pincode"
+                    value={pincode}
+                    onChange={e => handlePincodeChange(e.target.value)}
+                    placeholder="e.g. 500032"
+                    className="mt-1 block w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                  />
+                  {pincodeStatus.type !== 'idle' && (
+                    <p className={`mt-1 text-[10px] ${pincodeStatus.type === 'error' ? 'text-rose-600' : pincodeStatus.type === 'ok' ? 'text-emerald-600' : 'text-slate-500'}`}>
+                      {pincodeStatus.text}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-700">City *</label>

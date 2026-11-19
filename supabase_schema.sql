@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS leads (
   phone VARCHAR(50) NOT NULL,
   current_education VARCHAR(100) NOT NULL,
   class_12_passing_year INT NOT NULL,
+  class_12_percentage NUMERIC(5,2),
   city VARCHAR(100) NOT NULL,
   state VARCHAR(100) NOT NULL,
   interested_program VARCHAR(255) NOT NULL,

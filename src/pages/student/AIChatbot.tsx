@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getApiUrl } from '../../config/api';
 import { ChatMessage } from '../../types';
+import { CHAT_LANGUAGES, CHAT_STRINGS, ChatLanguage, loadChatLanguage, saveChatLanguage } from '../../i18n/chat';
 import {
   Sparkles,
   Send,
@@ -15,8 +16,35 @@ import {
   Bookmark,
   ShieldCheck,
   RefreshCw,
-  X
+  X,
+  Mic,
+  MicOff,
+  Languages,
+  Wrench
 } from 'lucide-react';
+
+const PROVIDER_LABEL: Record<string, string> = {
+  claude: 'Claude agent',
+  gemini: 'Gemini agent',
+  offline: 'Offline agent'
+};
+
+// Minimal typing for the browser Web Speech API (not in lib.dom for all targets)
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start: () => void;
+  stop: () => void;
+  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+};
+
+function getSpeechRecognition(): (new () => SpeechRecognitionLike) | null {
+  const w = window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };
+  return w.SpeechRecognition || w.webkitSpeechRecognition || null;
+}
 
 export const AIChatbot: React.FC = () => {
   const { user, token } = useAuth();
@@ -26,17 +54,50 @@ export const AIChatbot: React.FC = () => {
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [showCounsellingModal, setShowCounsellingModal] = useState(false);
   const [counsellingSuccess, setCounsellingSuccess] = useState(false);
+  const [language, setLanguage] = useState<ChatLanguage>(loadChatLanguage);
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const ui = CHAT_STRINGS[language];
 
-  // Suggested prompt pills
-  const samplePrompts = [
-    'What are the 2026 B.Tech eligibility criteria?',
-    'Explain the B.Tech CSE (AI & ML) curriculum and labs',
-    'What is the tuition fee structure and scholarship scheme?',
-    'What are the average and highest placement packages at NIAT?',
-    'How does the NSAT entrance exam work?',
-    'How can my parents connect with the admission dean?'
-  ];
+  const introMessage = (): ChatMessage => ({
+    sender: 'assistant',
+    message: ui.intro.replace('{name}', user?.name ? ` ${user.name}` : '')
+  });
+
+  const changeLanguage = (lang: ChatLanguage) => {
+    setLanguage(lang);
+    saveChatLanguage(lang);
+    // Refresh the greeting if the conversation has not started yet
+    setMessages(prev => (prev.length <= 1 && prev.every(m => m.sender === 'assistant'))
+      ? [{ sender: 'assistant', message: CHAT_STRINGS[lang].intro.replace('{name}', user?.name ? ` ${user.name}` : '') }]
+      : prev);
+  };
+
+  const toggleVoiceInput = () => {
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const Recognition = getSpeechRecognition();
+    if (!Recognition) {
+      alert(ui.voiceUnsupported);
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = CHAT_LANGUAGES.find(l => l.code === language)?.speech || 'en-IN';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = e => {
+      const transcript = e.results[0]?.[0]?.transcript || '';
+      if (transcript) setInput(prev => (prev ? `${prev} ${transcript}` : transcript));
+    };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    recognitionRef.current = recognition;
+    setListening(true);
+    recognition.start();
+  };
 
   const fetchHistory = async () => {
     if (!token) return;
@@ -52,23 +113,7 @@ export const AIChatbot: React.FC = () => {
         if (data.messages && data.messages.length > 0) {
           setMessages(data.messages);
         } else {
-          // Default intro greeting
-          setMessages([
-            {
-              sender: 'assistant',
-              message: `Hello ${user?.name || 'there'}! I am the **NIAT AI Assistant**, your official intelligent admission advisor for the **NextGen Institute of Advanced Technology (NIAT)**.
-
-I can guide you through our **2026 B.Tech engineering admissions**, including:
-- 🎓 **Programs & Curriculum** (AI & ML, Data Science, Software Systems)
-- 📋 **Eligibility & Mandatory 12th PCM Criteria**
-- 💰 **Fee Structure, Scholarships & 0% EMI Plans**
-- 💼 **Placements, Silicon Valley Partnerships & Average CTC**
-- 🏛️ **GPU Clusters, Innovation Hub & Hostel Life**
-
-Select a question below or type your inquiry to get started!`,
-              sources: [{ title: 'NIAT Admissions Handbook 2026', reference: 'Section 1.1' }]
-            }
-          ]);
+          setMessages([introMessage()]);
         }
       }
     } catch (err) {
@@ -100,7 +145,7 @@ Select a question below or type your inquiry to get started!`,
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ message: text, conversationId })
+        body: JSON.stringify({ message: text, conversationId, language })
       });
       const data = await res.json();
       if (res.ok) {
@@ -113,7 +158,9 @@ Select a question below or type your inquiry to get started!`,
             sender: 'assistant',
             message: data.reply,
             sources: data.sources || [],
-            suggestCounselling: data.suggestCounselling
+            suggestCounselling: data.suggestCounselling,
+            toolCalls: data.toolCalls || [],
+            provider: data.provider
           }
         ]);
       } else {
@@ -121,7 +168,7 @@ Select a question below or type your inquiry to get started!`,
           ...prev,
           {
             sender: 'assistant',
-            message: 'I encountered an error querying the verified database. Please try again.',
+            message: data.error || ui.errorQuery,
             sources: []
           }
         ]);
@@ -131,7 +178,7 @@ Select a question below or type your inquiry to get started!`,
         ...prev,
         {
           sender: 'assistant',
-          message: 'Network connection issue. Please check your connection and retry.',
+          message: ui.errorNetwork,
           sources: []
         }
       ]);
@@ -148,12 +195,7 @@ Select a question below or type your inquiry to get started!`,
         headers: { Authorization: `Bearer ${token}` }
       });
       setConversationId(null);
-      setMessages([
-        {
-          sender: 'assistant',
-          message: 'Conversation cleared! How can I assist you with your NIAT admission inquiry today?'
-        }
-      ]);
+      setMessages([{ sender: 'assistant', message: ui.cleared }]);
     } catch (err) {
       alert('Error clearing chat: ' + err);
     }
@@ -195,24 +237,37 @@ Select a question below or type your inquiry to get started!`,
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold text-slate-900">NIAT AI Admission Assistant</h1>
+              <h1 className="text-base font-bold text-slate-900">{ui.title}</h1>
               <span className="rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold px-1.5 py-0.5 border border-emerald-200">
-                Grounded RAG Engine Active
+                {ui.badge}
               </span>
             </div>
             <p className="text-[11px] text-slate-500">
-              Answers strictly verified from the official NIAT 2026 Admissions Handbook & Academic Bulletins.
+              {ui.subtitle}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700" title="Language">
+            <Languages className="h-3.5 w-3.5 text-blue-600" />
+            <select
+              value={language}
+              onChange={e => changeLanguage(e.target.value as ChatLanguage)}
+              className="bg-transparent text-xs font-semibold focus:outline-none"
+              aria-label="Chat language"
+            >
+              {CHAT_LANGUAGES.map(l => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+          </label>
           <button
             onClick={() => setShowCounsellingModal(true)}
             className="flex items-center gap-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-3 py-1.5 text-xs font-semibold transition"
           >
             <PhoneCall className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Connect with Counsellor</span>
+            <span className="hidden sm:inline">{ui.connect}</span>
           </button>
           <button
             onClick={handleClearChat}
@@ -226,7 +281,7 @@ Select a question below or type your inquiry to get started!`,
 
       {/* Suggested Prompt Chips */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-shrink-0 no-scrollbar">
-        {samplePrompts.map((p, idx) => (
+        {ui.suggestions.map((p, idx) => (
           <button
             key={idx}
             onClick={() => handleSendMessage(p)}
@@ -261,12 +316,36 @@ Select a question below or type your inquiry to get started!`,
                 {m.message}
               </div>
 
+              {/* Agent actions (tool calls) */}
+              {m.toolCalls && m.toolCalls.length > 0 && (
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <span className="font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <Wrench className="h-3 w-3 text-indigo-600" />
+                    {ui.actionsTaken}:
+                  </span>
+                  {m.toolCalls.map((c, i) => (
+                    <span
+                      key={i}
+                      className={`rounded-md border px-2 py-0.5 font-semibold ${
+                        !c.ok
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : c.isAction
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                      }`}
+                    >
+                      {c.ok ? (c.isAction ? '✅ ' : '🔎 ') : '⚠️ '}{c.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {/* Verified Sources Citation Pill */}
               {m.sources && m.sources.length > 0 && (
                 <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-2 text-[10px]">
                   <span className="font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                     <Bookmark className="h-3 w-3 text-blue-600" />
-                    Verified Official Reference:
+                    {ui.verifiedRef}
                   </span>
                   {m.sources.map((s, i) => (
                     <span
@@ -287,9 +366,13 @@ Select a question below or type your inquiry to get started!`,
                     className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 text-white font-bold px-3 py-1.5 text-xs shadow-sm hover:bg-blue-700 transition"
                   >
                     <PhoneCall className="h-3.5 w-3.5" />
-                    Connect with Human Counsellor
+                    {ui.connectHuman}
                   </button>
                 </div>
+              )}
+
+              {m.sender === 'assistant' && m.provider && PROVIDER_LABEL[m.provider] && (
+                <p className="mt-2 text-[9px] text-slate-400 font-medium">{PROVIDER_LABEL[m.provider]}</p>
               )}
             </div>
 
@@ -308,7 +391,7 @@ Select a question below or type your inquiry to get started!`,
             </div>
             <div className="rounded-3xl rounded-bl-none bg-white p-4 border border-slate-200 text-xs text-slate-500 italic shadow-sm flex items-center gap-2">
               <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600" />
-              Retrieving verified handbook data and synthesizing guidance...
+              {ui.thinking}
             </div>
           </div>
         )}
@@ -325,9 +408,21 @@ Select a question below or type your inquiry to get started!`,
           type="text"
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Ask a question about programs, admission eligibility, fees, or placements..."
+          placeholder={listening ? ui.listening : ui.placeholder}
+          lang={language}
           className="flex-1 bg-transparent px-3 py-2 text-xs text-slate-900 focus:outline-none"
         />
+        <button
+          type="button"
+          onClick={toggleVoiceInput}
+          title={listening ? ui.listening : 'Voice input'}
+          aria-label="Voice input"
+          className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
+            listening ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+        </button>
         <button
           type="submit"
           disabled={loading || !input.trim()}

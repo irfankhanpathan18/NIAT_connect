@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Sparkles, X, Send, Bot, User, ArrowUpRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl } from '../config/api';
+import { loadChatLanguage } from '../i18n/chat';
 
 export const FloatingChatbot: React.FC = () => {
   const { isStudent, token } = useAuth();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Array<{ sender: 'user' | 'assistant'; text: string; sources?: any[] }>>([
@@ -16,7 +18,8 @@ export const FloatingChatbot: React.FC = () => {
   ]);
   const [loading, setLoading] = useState(false);
 
-  if (!isStudent) return null;
+  // The full assistant page has its own input bar; the floating button would cover it.
+  if (!isStudent || location.pathname === '/student/ai-assistant') return null;
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -34,7 +37,7 @@ export const FloatingChatbot: React.FC = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ message: query })
+        body: JSON.stringify({ message: query, language: loadChatLanguage() })
       });
       const data = await res.json();
       if (res.ok) {

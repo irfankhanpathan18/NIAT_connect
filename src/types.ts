@@ -191,6 +191,13 @@ export interface ChatSource {
   category?: string;
 }
 
+export interface AgentToolCall {
+  name: string;
+  label: string;
+  ok: boolean;
+  isAction?: boolean;
+}
+
 export interface ChatMessage {
   id?: number;
   sender: 'user' | 'assistant';
@@ -198,6 +205,8 @@ export interface ChatMessage {
   sources?: ChatSource[];
   created_at?: string;
   suggestCounselling?: boolean;
+  toolCalls?: AgentToolCall[];
+  provider?: 'claude' | 'gemini' | 'offline' | 'none';
 }
 
 export interface KnowledgeDoc {
