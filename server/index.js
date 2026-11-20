@@ -24,26 +24,63 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
+// Database initialization promise for Serverless and Standalone environments
+let initDbPromise = null;
+async function ensureDbInitialized() {
+  if (!initDbPromise) {
+    initDbPromise = (async () => {
+      console.log('🚀 Initializing NIAT Connect database engine...');
+      await initDatabase();
+      initSchema(db);
+      const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+      if (userCount === 0) {
+        seedDatabase(db);
+      }
+      seedNiat2Expansion(db);
+      console.log('✅ NIAT Connect database engine ready.');
+    })();
+  }
+  return initDbPromise;
+}
+
+// Middleware to ensure DB is initialized before handling any route
+app.use(async (req, res, next) => {
+  try {
+    await ensureDbInitialized();
+    next();
+  } catch (err) {
+    console.error('Fatal database initialization error:', err);
+    res.status(500).json({ error: 'Database initialization failed: ' + err.message });
+  }
+});
+
 // Health check
-app.get('/api/health', (req, res) => {
+const handleHealth = (req, res) => {
   res.json({
     status: 'ONLINE',
     app: 'NIAT Connect',
     institution: 'NextGen Institute of Advanced Technology',
     timestamp: new Date().toISOString()
   });
-});
+};
+app.get('/api/health', handleHealth);
+app.get('/health', handleHealth);
 
-// Mount Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/student', studentRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/public', publicRoutes);
-app.use('/api', referralRoutes);
-app.use('/api', swagRoutes);
-app.use('/api', aiFactRoutes);
-app.use('/api', puzzleRoutes);
+// Route mounter supporting both /api/* and /* (supports direct Vercel routing as well as local proxy)
+const mountRoute = (path, router) => {
+  app.use(`/api${path}`, router);
+  app.use(path, router);
+};
+
+mountRoute('/auth', authRoutes);
+mountRoute('/admin', adminRoutes);
+mountRoute('/student', studentRoutes);
+mountRoute('/notifications', notificationRoutes);
+mountRoute('/public', publicRoutes);
+mountRoute('/', referralRoutes);
+mountRoute('/', swagRoutes);
+mountRoute('/', aiFactRoutes);
+mountRoute('/', puzzleRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -51,25 +88,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error occurred: ' + err.message });
 });
 
-// Startup sequence
+// Startup sequence for standalone execution
 async function startServer() {
   try {
-    console.log('🚀 Initializing NIAT Connect database engine...');
-    await initDatabase();
-
-    // Initialize Schema
-    initSchema(db);
-
-    // Auto-seed if database is fresh
-    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-    if (userCount === 0) {
-      seedDatabase(db);
-    } else {
-      console.log(`ℹ️ Database already initialized with ${userCount} registered accounts.`);
-    }
-
-    // Seed NIAT 2.0 Feature Expansion tables if not yet seeded
-    seedNiat2Expansion(db);
+    await ensureDbInitialized();
 
     app.listen(PORT, () => {
       console.log(`====================================================`);
@@ -95,4 +117,9 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
-startServer();
+// Start listener only when run directly (e.g. node server/index.js), not when imported as Vercel serverless function
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;

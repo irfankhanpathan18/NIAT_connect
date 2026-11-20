@@ -62,7 +62,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: pass })
       });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        return { success: false, error: `Server returned error (${res.status} ${res.statusText || 'Endpoint unavailable'})` };
+      }
       if (!res.ok) {
         return { success: false, error: data.error || 'Admin login failed' };
       }
@@ -83,7 +88,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: pass })
       });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        return { success: false, error: `Server returned error (${res.status} ${res.statusText || 'Endpoint unavailable'})` };
+      }
       if (!res.ok) {
         return { success: false, error: data.error || 'Student login failed' };
       }
@@ -104,7 +114,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        return { success: false, error: `Server returned error (${res.status} ${res.statusText || 'Endpoint unavailable'})` };
+      }
       if (!res.ok) {
         return { success: false, error: data.error || 'Student registration failed' };
       }

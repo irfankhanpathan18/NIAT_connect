@@ -2,7 +2,11 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const dbPath = path.join(__dirname, '..', 'niat.db');
+const isVercel = Boolean(process.env.VERCEL || process.env.NOW_REGION);
+const dbPath = isVercel
+  ? path.join('/tmp', 'niat.db')
+  : path.join(__dirname, '..', 'niat.db');
+const bundledSeedPath = path.join(__dirname, '..', 'niat.db');
 
 let sqlInstance = null;
 let db = null;
@@ -22,7 +26,7 @@ function saveToDisk() {
     const buffer = Buffer.from(data);
     fs.writeFileSync(dbPath, buffer);
   } catch (err) {
-    console.error('Failed to save SQLite database to disk:', err);
+    console.error('Failed to save SQLite database to disk:', err.message);
   }
 }
 
@@ -148,14 +152,46 @@ const dbManager = new DatabaseManager();
 async function initDatabase() {
   if (db) return dbManager;
 
-  sqlInstance = await initSqlJs();
+  let wasmPath = null;
+  try {
+    wasmPath = path.join(path.dirname(require.resolve('sql.js')), 'sql-wasm.wasm');
+  } catch {
+    wasmPath = null;
+  }
 
+  sqlInstance = await initSqlJs({
+    locateFile: file => {
+      if (wasmPath && fs.existsSync(wasmPath)) return wasmPath;
+      return file;
+    }
+  });
+
+  let fileBuffer = null;
   if (fs.existsSync(dbPath)) {
     try {
-      const fileBuffer = fs.readFileSync(dbPath);
+      fileBuffer = fs.readFileSync(dbPath);
+    } catch (e) {
+      console.warn('Could not read existing database from dbPath:', e.message);
+    }
+  } else if (isVercel && fs.existsSync(bundledSeedPath)) {
+    try {
+      fileBuffer = fs.readFileSync(bundledSeedPath);
+      // Copy to writable /tmp for persistence
+      try {
+        fs.writeFileSync(dbPath, fileBuffer);
+      } catch (writeErr) {
+        console.warn('Could not write initial database to /tmp:', writeErr.message);
+      }
+    } catch (e) {
+      console.warn('Could not read bundled database:', e.message);
+    }
+  }
+
+  if (fileBuffer) {
+    try {
       db = new sqlInstance.Database(fileBuffer);
     } catch (e) {
-      console.warn('Could not read existing database, creating fresh one:', e.message);
+      console.warn('Could not parse database buffer, creating fresh one:', e.message);
       db = new sqlInstance.Database();
     }
   } else {
