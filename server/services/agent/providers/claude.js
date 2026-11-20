@@ -8,7 +8,7 @@ const MAX_ITERATIONS = 8;
 
 let client = null;
 function getClient() {
-  if (!client) client = new Anthropic();
+  if (!client) client = new Anthropic({ baseURL: process.env.ANTHROPIC_BASE_URL });
   return client;
 }
 

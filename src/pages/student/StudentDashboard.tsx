@@ -16,7 +16,15 @@ import {
   FileText,
   UserCheck,
   X,
-  Bell
+  Bell,
+  Gift,
+  ShoppingBag,
+  Trophy,
+  Flame,
+  BookOpen,
+  Cpu,
+  Zap,
+  ExternalLink
 } from 'lucide-react';
 
 export const StudentDashboard: React.FC = () => {
@@ -26,6 +34,7 @@ export const StudentDashboard: React.FC = () => {
   const [myEvents, setMyEvents] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [counsellor, setCounsellor] = useState<any>(null);
+  const [engagement, setEngagement] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   // Counselling Request Modal State
@@ -53,6 +62,7 @@ export const StudentDashboard: React.FC = () => {
           setMyEvents(data.myEvents || []);
           setAnnouncements(data.announcements || []);
           setCounsellor(data.counsellor);
+          setEngagement(data.engagement || null);
         }
       } catch (err) {
         console.error('Failed to load dashboard:', err);
@@ -171,6 +181,129 @@ export const StudentDashboard: React.FC = () => {
         </div>
 
         <div className="absolute -right-10 -bottom-10 h-64 w-64 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+      </div>
+
+      {/* NIAT 2.0 – Student Engagement & Rewards Overview */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. Refer & Earn Reward Points */}
+        <div className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-3 hover:shadow-md transition group">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Reward Points
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 fill-amber-500" />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-slate-900">
+              {engagement?.available_reward_points || 0} <span className="text-xs font-semibold text-slate-500">pts</span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {engagement?.total_successful_referrals || 0} successful referrals credited
+            </p>
+          </div>
+          <Link
+            to="/student/referrals"
+            className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+          >
+            <span>Refer Friends & Earn</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {/* 2. NIAT Swag Store */}
+        <div className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-3 hover:shadow-md transition group">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              NIAT Swag Store
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            {engagement?.latest_swag_order ? (
+              <div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                  {engagement.latest_swag_order.status}
+                </span>
+                <p className="text-xs font-bold text-slate-900 mt-1 truncate">
+                  {engagement.latest_swag_order.product_name}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div className="text-base font-bold text-slate-900">Merchandise Catalog</div>
+                <p className="text-xs text-slate-500 mt-0.5">T-Shirts, Caps & Hacker Backpacks</p>
+              </div>
+            )}
+          </div>
+          <Link
+            to="/student/swag-store"
+            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+          >
+            <span>{engagement?.latest_swag_order ? 'Track Orders' : 'Redeem Swag'}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {/* 3. Daily AI Fact */}
+        <div className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-3 hover:shadow-md transition group">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Daily AI Fact
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <BookOpen className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold uppercase">
+              {engagement?.daily_ai_fact?.category || 'AI Intel'}
+            </span>
+            <p className="text-xs font-bold text-slate-900 mt-1 line-clamp-2">
+              {engagement?.daily_ai_fact?.title || 'Mixture of Experts in Frontier LLMs'}
+            </p>
+          </div>
+          <Link
+            to="/student/ai-facts"
+            className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+          >
+            <span>Read Today's Fact</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {/* 4. Puzzle Streak & Leaderboard */}
+        <div className="p-5 rounded-3xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-3 hover:shadow-md transition group">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Logic & Puzzles
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+              <Flame className="w-4 h-4 fill-orange-500" />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-black text-slate-900">
+                {engagement?.current_streak || 0} 🔥
+              </span>
+              <span className="text-xs font-semibold text-slate-400">Day Streak</span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Rank #{engagement?.puzzle_rank || 1} • {engagement?.game_points || 0} game pts
+            </p>
+          </div>
+          <Link
+            to="/student/puzzles"
+            className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+          >
+            <span>Solve Today's Challenge</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
       </div>
 
       {/* 5-Step Admission Progress Pipeline */}

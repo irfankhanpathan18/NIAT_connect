@@ -288,7 +288,7 @@ describe('Claude provider (official SDK against a local mock API)', () => {
         res.end(JSON.stringify(reply));
       });
     });
-    await new Promise(resolve => server.listen(0, resolve));
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     process.env.ANTHROPIC_API_KEY = 'sk-test';
     process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${server.address().port}`;
     // The provider caches its client; load a fresh copy so it picks up the mock URL.

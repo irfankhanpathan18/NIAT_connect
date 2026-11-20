@@ -16,7 +16,10 @@ import {
   X,
   Eye,
   Radio,
-  Download
+  Download,
+  Building2,
+  ShieldCheck,
+  Sparkles
 } from 'lucide-react';
 
 export const EventManager: React.FC = () => {
@@ -34,7 +37,7 @@ export const EventManager: React.FC = () => {
   // Form State
   const [form, setForm] = useState({
     title: '',
-    category: 'NIAT Admission Webinar',
+    category: 'Hackathons',
     description: '',
     event_date: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0],
     start_time: '11:00 AM',
@@ -44,8 +47,30 @@ export const EventManager: React.FC = () => {
     speaker_name: 'Dr. Arvind Swaminathan',
     speaker_title: 'Director of Admissions',
     capacity: 200,
-    status: 'PUBLISHED' as 'DRAFT' | 'PUBLISHED'
+    status: 'PUBLISHED' as 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'CANCELLED',
+    organizer: 'NIAT',
+    registration_url: '',
+    registration_deadline: '',
+    eligibility_criteria: '',
+    banner_url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800',
+    is_featured: 0,
+    source_verified: 'Verified Academic Committee'
   });
+
+  const categories = [
+    'Hackathons',
+    'Big Tech Events',
+    'AI and Machine Learning Events',
+    'Coding Competitions',
+    'Developer Conferences',
+    'Technology Workshops',
+    'Webinars',
+    'Startup Events',
+    'Innovation Challenges',
+    'NIAT Admission Webinar',
+    'Campus Orientation',
+    'Parent Counselling Session'
+  ];
 
   const fetchEvents = async () => {
     if (!token) return;
@@ -73,7 +98,7 @@ export const EventManager: React.FC = () => {
     setEditingEvent(null);
     setForm({
       title: '',
-      category: 'NIAT Admission Webinar',
+      category: 'Hackathons',
       description: '',
       event_date: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0],
       start_time: '11:00 AM',
@@ -83,7 +108,14 @@ export const EventManager: React.FC = () => {
       speaker_name: 'Dr. Arvind Swaminathan',
       speaker_title: 'Director of Admissions',
       capacity: 200,
-      status: 'PUBLISHED'
+      status: 'PUBLISHED',
+      organizer: 'NIAT',
+      registration_url: '',
+      registration_deadline: '',
+      eligibility_criteria: '',
+      banner_url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800',
+      is_featured: 0,
+      source_verified: 'Verified Academic Committee'
     });
     setShowModal(true);
   };
@@ -92,7 +124,7 @@ export const EventManager: React.FC = () => {
     setEditingEvent(evt);
     setForm({
       title: evt.title,
-      category: evt.category,
+      category: evt.category as string,
       description: evt.description,
       event_date: evt.event_date,
       start_time: evt.start_time,
@@ -102,7 +134,14 @@ export const EventManager: React.FC = () => {
       speaker_name: evt.speaker_name || '',
       speaker_title: evt.speaker_title || '',
       capacity: evt.capacity,
-      status: evt.status as any
+      status: evt.status as any,
+      organizer: evt.organizer || 'NIAT',
+      registration_url: evt.registration_url || '',
+      registration_deadline: evt.registration_deadline || '',
+      eligibility_criteria: evt.eligibility_criteria || '',
+      banner_url: evt.banner_url || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800',
+      is_featured: evt.is_featured || 0,
+      source_verified: evt.source_verified || 'Verified Academic Committee'
     });
     setShowModal(true);
   };
@@ -176,353 +215,328 @@ export const EventManager: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <Calendar className="h-6 w-6 text-blue-600" />
-            Institutional Event & Webinar Management
+            Institutional & Big Tech Event Calendar Management
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Publish admission webinars, masterclasses, and open-house sessions that automatically appear on student portals.
+            Create webinars, hackathons, and curate Big Tech public events (Google, NVIDIA, Microsoft).
           </p>
         </div>
 
         <button
           onClick={handleOpenAdd}
-          className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition"
+          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md hover:bg-blue-700 transition self-start md:self-auto"
         >
-          <Plus className="h-4 w-4" /> Create Institutional Event
+          <Plus className="h-4 w-4" />
+          <span>Publish New Event</span>
         </button>
       </div>
 
-      {/* Events Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      {/* Events Table */}
+      <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="col-span-3 py-12 text-center text-xs text-slate-400">
-            Loading events directory...
+          <div className="py-12 flex justify-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : events.length === 0 ? (
-          <div className="col-span-3 py-12 text-center text-xs text-slate-400 rounded-2xl border border-dashed border-slate-300 p-8">
-            No events scheduled. Click "Create Institutional Event" to add one.
+          <div className="py-12 text-center text-slate-400 text-xs">
+            No events scheduled. Click "Publish New Event" above to create one.
           </div>
         ) : (
-          events.map(evt => (
-            <div
-              key={evt.id}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700">
-                    {evt.category}
-                  </span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                      evt.status === 'PUBLISHED'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}
-                  >
-                    {evt.status}
-                  </span>
-                </div>
-
-                <h3 className="text-sm font-bold text-slate-900 mt-3 line-clamp-2 leading-snug">
-                  {evt.title}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1 line-clamp-2">{evt.description}</p>
-
-                <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-slate-400" />
-                    <span className="font-semibold text-slate-800">{evt.event_date}</span>
-                    <span className="text-slate-400">•</span>
-                    <span>{evt.start_time} - {evt.end_time}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {evt.location_type === 'Online' ? (
-                      <Video className="h-3.5 w-3.5 text-blue-500" />
-                    ) : (
-                      <MapPin className="h-3.5 w-3.5 text-rose-500" />
-                    )}
-                    <span className="truncate">{evt.venue_or_link}</span>
-                  </div>
-
-                  {evt.speaker_name && (
-                    <p className="text-[11px] text-slate-500 pt-1">
-                      Speaker: <strong className="text-slate-700">{evt.speaker_name}</strong> ({evt.speaker_title})
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <button
-                  onClick={() => viewAttendees(evt)}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800"
-                >
-                  <Users className="h-3.5 w-3.5" />
-                  <span>{evt.registrations_count || 0} / {evt.capacity} Registered</span>
-                </button>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleOpenEdit(evt)}
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-slate-100 transition"
-                    title="Edit Event"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteEvent(evt.id)}
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
-                    title="Delete Event"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
+                <tr>
+                  <th className="py-3.5 px-4">Event Details</th>
+                  <th className="py-3.5 px-4">Organizer</th>
+                  <th className="py-3.5 px-4">Date & Time</th>
+                  <th className="py-3.5 px-4">Location / Link</th>
+                  <th className="py-3.5 px-4">Registrations</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {events.map(evt => (
+                  <tr key={evt.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="py-3.5 px-4 max-w-xs">
+                      <div className="font-bold text-slate-900 truncate flex items-center gap-1.5">
+                        {evt.is_featured === 1 && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-400 text-slate-900 font-extrabold text-[9px] uppercase">
+                            Featured
+                          </span>
+                        )}
+                        <span>{evt.title}</span>
+                      </div>
+                      <span className="text-[10px] text-blue-600 font-semibold">{evt.category}</span>
+                    </td>
+                    <td className="py-3.5 px-4 font-semibold text-slate-800">
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px]">
+                        {evt.organizer || 'NIAT'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-slate-600 whitespace-nowrap">
+                      {evt.event_date} <br />
+                      <span className="text-[10px] text-slate-400">{evt.start_time}</span>
+                    </td>
+                    <td className="py-3.5 px-4 max-w-xs truncate text-[11px] text-slate-500">
+                      {evt.venue_or_link}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <button
+                        onClick={() => viewAttendees(evt)}
+                        className="font-bold text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{evt.registrations_count || 0} / {evt.capacity}</span>
+                      </button>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        evt.status === 'PUBLISHED' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {evt.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleOpenEdit(evt)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEvent(evt.id)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* Create / Edit Modal */}
+      {/* Add / Edit Event Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-              <h3 className="text-sm font-bold text-slate-900">
-                {editingEvent ? 'Edit Institutional Event' : 'Create New Institutional Event'}
-              </h3>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 my-8">
+            <h3 className="text-lg font-bold text-slate-900">
+              {editingEvent ? 'Edit Event Details' : 'Publish New Event / Hackathon'}
+            </h3>
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Event Title *</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Event Name</label>
                 <input
                   type="text"
                   required
                   value={form.title}
                   onChange={e => setForm({ ...form, title: e.target.value })}
-                  placeholder="e.g. NIAT National Admission Webinar 2026"
-                  className="w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-slate-900 focus:bg-white"
+                  placeholder="e.g. Google Cloud GenAI Hackathon 2026"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-slate-700 mb-1">Category *</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Organizer</label>
+                  <input
+                    type="text"
+                    required
+                    value={form.organizer}
+                    onChange={e => setForm({ ...form, organizer: e.target.value })}
+                    placeholder="e.g. Google, NVIDIA, Microsoft, NIAT"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Category</label>
                   <select
                     value={form.category}
                     onChange={e => setForm({ ...form, category: e.target.value })}
-                    className="w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-slate-900 focus:bg-white"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
                   >
-                    <option value="NIAT Admission Webinar">NIAT Admission Webinar</option>
-                    <option value="Campus Orientation">Campus Orientation</option>
-                    <option value="Parent Counselling Session">Parent Counselling Session</option>
-                    <option value="Admission Guidance Session">Admission Guidance Session</option>
-                    <option value="Technology Workshop">Technology Workshop</option>
-                    <option value="Student Interaction Session">Student Interaction Session</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Location Format *</label>
-                  <select
-                    value={form.location_type}
-                    onChange={e => setForm({ ...form, location_type: e.target.value as any })}
-                    className="w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-slate-900 focus:bg-white"
-                  >
-                    <option value="Online">Online Webinar (Meet / Zoom)</option>
-                    <option value="Campus">In-Person Campus Session</option>
+                    {categories.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 mb-1">
-                  {form.location_type === 'Online' ? 'Meeting URL / Link *' : 'Campus Venue Location *'}
-                </label>
-                <input
-                  type="text"
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Description</label>
+                <textarea
+                  rows={2}
                   required
-                  value={form.venue_or_link}
-                  onChange={e => setForm({ ...form, venue_or_link: e.target.value })}
-                  placeholder={form.location_type === 'Online' ? 'https://meet.google.com/xyz-abc' : 'AI Lab 4, Tech Block'}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-slate-900 focus:bg-white"
+                  value={form.description}
+                  onChange={e => setForm({ ...form, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-medium text-slate-700 mb-1">Date *</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Date</label>
                   <input
                     type="date"
                     required
                     value={form.event_date}
                     onChange={e => setForm({ ...form, event_date: e.target.value })}
-                    className="w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-slate-900 focus:bg-white"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-700 mb-1">Start Time *</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Start Time</label>
                   <input
                     type="text"
                     required
                     value={form.start_time}
                     onChange={e => setForm({ ...form, start_time: e.target.value })}
-                    placeholder="11:00 AM"
-                    className="w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-slate-900 focus:bg-white"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-700 mb-1">End Time</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">End Time</label>
                   <input
                     type="text"
+                    required
                     value={form.end_time}
                     onChange={e => setForm({ ...form, end_time: e.target.value })}
-                    placeholder="12:30 PM"
-                    className="w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-slate-900 focus:bg-white"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-slate-700 mb-1">Key Speaker / Host</label>
-                  <input
-                    type="text"
-                    value={form.speaker_name}
-                    onChange={e => setForm({ ...form, speaker_name: e.target.value })}
-                    placeholder="Dr. Arvind Swaminathan"
-                    className="w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-slate-900 focus:bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Speaker Designation</label>
-                  <input
-                    type="text"
-                    value={form.speaker_title}
-                    onChange={e => setForm({ ...form, speaker_title: e.target.value })}
-                    placeholder="Director of Admissions"
-                    className="w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-slate-900 focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Capacity Seat Limit</label>
-                  <input
-                    type="number"
-                    value={form.capacity}
-                    onChange={e => setForm({ ...form, capacity: parseInt(e.target.value, 10) })}
-                    className="w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-slate-900 focus:bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Publication Status</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Location Type</label>
                   <select
-                    value={form.status}
-                    onChange={e => setForm({ ...form, status: e.target.value as any })}
-                    className="w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-slate-900 focus:bg-white"
+                    value={form.location_type}
+                    onChange={e => setForm({ ...form, location_type: e.target.value as any })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
                   >
-                    <option value="PUBLISHED">Published (Visible to Students)</option>
-                    <option value="DRAFT">Draft (Admin Only)</option>
+                    <option value="Online">Online Webinar / Livestream</option>
+                    <option value="Campus">Physical Campus Session</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Venue or Meeting Link</label>
+                  <input
+                    type="text"
+                    required
+                    value={form.venue_or_link}
+                    onChange={e => setForm({ ...form, venue_or_link: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Official Registration Link (Optional)</label>
+                  <input
+                    type="url"
+                    value={form.registration_url}
+                    onChange={e => setForm({ ...form, registration_url: e.target.value })}
+                    placeholder="https://..."
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Registration Deadline (Optional)</label>
+                  <input
+                    type="date"
+                    value={form.registration_deadline}
+                    onChange={e => setForm({ ...form, registration_deadline: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Event Agenda & Description</label>
-                <textarea
-                  rows={3}
-                  value={form.description}
-                  onChange={e => setForm({ ...form, description: e.target.value })}
-                  placeholder="Detailed agenda, key takeaways, and prerequisites for prospective attendees..."
-                  className="w-full rounded-xl bg-slate-50 border border-slate-300 p-2.5 text-slate-900 focus:bg-white"
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Eligibility Criteria</label>
+                <input
+                  type="text"
+                  value={form.eligibility_criteria}
+                  onChange={e => setForm({ ...form, eligibility_criteria: e.target.value })}
+                  placeholder="e.g. Open to all Class 12 and B.Tech candidates"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="rounded-xl border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white shadow-md hover:bg-blue-700"
-                >
-                  {editingEvent ? 'Save Changes' : 'Publish Event'}
-                </button>
+              <div className="flex items-center justify-between pt-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={form.is_featured === 1}
+                    onChange={e => setForm({ ...form, is_featured: e.target.checked ? 1 : 0 })}
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>Mark as Featured Event</span>
+                </label>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20"
+                  >
+                    Save Event
+                  </button>
+                </div>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Registered Attendees Modal */}
+      {/* Attendees Modal */}
       {attendeesModalEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Registered Students: {attendeesModalEvent.title}
+                <h3 className="text-base font-bold text-slate-900">
+                  Registered Attendees ({attendees.length})
                 </h3>
-                <p className="text-[11px] text-slate-500">
-                  {attendees.length} confirmed student reservations
-                </p>
+                <p className="text-xs text-slate-500 truncate">{attendeesModalEvent.title}</p>
               </div>
               <button
                 onClick={() => setAttendeesModalEvent(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600"
               >
-                <X className="h-5 w-5" />
+                ✕
               </button>
             </div>
 
-            <div className="max-h-80 overflow-y-auto text-xs">
-              {loadingAttendees ? (
-                <p className="py-8 text-center text-slate-400">Loading attendee roster...</p>
-              ) : attendees.length === 0 ? (
-                <p className="py-8 text-center text-slate-400">No student registrations recorded yet.</p>
-              ) : (
-                <table className="w-full text-left">
-                  <thead className="bg-slate-100 text-slate-600 text-[10px] uppercase font-semibold">
-                    <tr>
-                      <th className="p-2.5">Pass Ticket #</th>
-                      <th className="p-2.5">Student Name</th>
-                      <th className="p-2.5">Email</th>
-                      <th className="p-2.5">Phone</th>
-                      <th className="p-2.5">City</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {attendees.map(a => (
-                      <tr key={a.id} className="hover:bg-slate-50">
-                        <td className="p-2.5 font-mono font-bold text-blue-700">{a.ticket_number}</td>
-                        <td className="p-2.5 font-semibold text-slate-900">{a.student_name}</td>
-                        <td className="p-2.5 text-slate-600">{a.student_email}</td>
-                        <td className="p-2.5 text-slate-600">{a.student_phone}</td>
-                        <td className="p-2.5 text-slate-600">{a.city || 'N/A'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={() => setAttendeesModalEvent(null)}
-                className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-              >
-                Done
-              </button>
+            <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 text-xs">
+              {attendees.map(a => (
+                <div key={a.id} className="py-2.5 flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-slate-900">{a.student_name}</div>
+                    <div className="text-[11px] text-slate-400">{a.student_email} • {a.student_phone}</div>
+                  </div>
+                  <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                    {a.ticket_number}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>

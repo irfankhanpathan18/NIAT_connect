@@ -772,4 +772,431 @@ A: Parents receive term-end reports, access to the Parent Portal, and can schedu
   console.log('✅ NIAT Connect database successfully seeded with all realistic records.');
 }
 
+function seedNiat2Expansion(db) {
+  console.log('🚀 Checking and seeding NIAT Connect 2.0 expansion records...');
+
+  // 1. Referral Settings
+  db.prepare(`
+    INSERT OR IGNORE INTO referral_settings (key, value) VALUES ('points_per_referral', '25')
+  `).run();
+
+  // 2. Student Referral Codes
+  const insertCode = db.prepare('INSERT OR IGNORE INTO referral_codes (user_id, code) VALUES (?, ?)');
+  insertCode.run(2, 'NIAT-RAHUL-7821');
+  insertCode.run(3, 'NIAT-PRIYA-3419');
+  insertCode.run(4, 'NIAT-ANANYA-9012');
+
+  // 3. Demo Referrals for Rahul Sharma (user_id = 2)
+  const existingRefs = db.prepare('SELECT COUNT(*) as count FROM student_referrals').get().count;
+  if (existingRefs === 0) {
+    const insertRef = db.prepare(`
+      INSERT INTO student_referrals (
+        referrer_id, referred_name, referred_email, referred_phone, referral_code, status, points_awarded, notes, verified_by, verified_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `);
+
+    insertRef.run(
+      2, 'Karan Mehta', 'karan.m@gmail.com', '+91 98444 55667', 'NIAT-RAHUL-7821', 'APPROVED', 25,
+      'Class 12 CBSE PCM 94.2%. Interested in B.Tech AI & ML. Verified and admitted.', 1
+    );
+
+    insertRef.run(
+      2, 'Sneha Reddy', 'sneha.r@gmail.com', '+91 98555 66778', 'NIAT-RAHUL-7821', 'APPROVED', 25,
+      'Class 12 State Board 91.0%. Completed admission guidance session.', 1
+    );
+
+    insertRef.run(
+      2, 'Aditya Joshi', 'aditya.j@gmail.com', '+91 98666 77889', 'NIAT-RAHUL-7821', 'PENDING', 0,
+      'Registered via referral link. In counselling queue.', null
+    );
+
+    // Initial Ledger entries for Rahul Sharma
+    const insertTx = db.prepare(`
+      INSERT INTO reward_transactions (student_id, transaction_type, points, description, reference_id, status)
+      VALUES (?, ?, ?, ?, ?, 'COMPLETED')
+    `);
+
+    insertTx.run(2, 'Referral Reward', 25, 'Referral reward for student: Karan Mehta', 'REF-1');
+    insertTx.run(2, 'Referral Reward', 25, 'Referral reward for student: Sneha Reddy', 'REF-2');
+  }
+
+  // 4. Initial Swag Merchandise Products
+  const existingProducts = db.prepare('SELECT COUNT(*) as count FROM swag_products').get().count;
+  if (existingProducts === 0) {
+    const insertProduct = db.prepare(`
+      INSERT INTO swag_products (name, description, category, points_required, stock, image_url, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')
+    `);
+
+    insertProduct.run(
+      'NIAT Signature Developer T-Shirt',
+      'Premium 100% bio-washed cotton, embroidered NIAT emblem & NextGen tech crest. Breathable and comfortable for long coding sessions.',
+      'Apparel',
+      10,
+      45,
+      'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600'
+    );
+
+    insertProduct.run(
+      'NIAT Minimalist Tech Cap',
+      'Ergonomic breathable cotton cap with embroidered NIAT insignia and adjustable moisture-wicking strap.',
+      'Accessories',
+      5,
+      30,
+      'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=600'
+    );
+
+    insertProduct.run(
+      'NIAT Hacker Backpack',
+      'Weather-resistant ballistic nylon, padded 15.6" laptop compartment, ergonomic lumbar support, and integrated USB charging passthrough.',
+      'Bags',
+      20,
+      15,
+      'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600'
+    );
+
+    insertProduct.run(
+      'NIAT Hydro Thermal Flask',
+      'Double-wall vacuum insulated 750ml food-grade 304 stainless steel bottle. Keeps drinks cold for 24 hours or hot for 12 hours.',
+      'Accessories',
+      8,
+      25,
+      'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=600'
+    );
+
+    insertProduct.run(
+      'NIAT Cyber Black Dev Hoodie',
+      'Heavyweight 380 GSM fleece hoodie with embroidered algorithm syntax on sleeve and metallic embossed chest crest.',
+      'Apparel',
+      25,
+      20,
+      'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600'
+    );
+  }
+
+  // 5. Initial AI Facts
+  const existingFacts = db.prepare('SELECT COUNT(*) as count FROM ai_facts').get().count;
+  if (existingFacts === 0) {
+    const insertFact = db.prepare(`
+      INSERT INTO ai_facts (title, explanation, interesting_example, category, fact_date, source_link, source_title, image_url, is_published)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `);
+
+    insertFact.run(
+      'Mixture of Experts (MoE) Architecture in Frontier LLMs',
+      'Rather than activating every parameter on every token, Mixture of Experts routes inputs dynamically to specialized sub-networks ("experts"), slashing inference compute by up to 60% while maintaining frontier benchmark scores.',
+      'Models like Mixtral 8x7B use 8 distinct neural expert networks per layer, but each token only engages 2 experts at any millisecond during generation.',
+      'Generative AI',
+      new Date().toISOString().split('T')[0],
+      'https://arxiv.org/abs/1701.06538',
+      'ArXiv Deep Learning Research (Shazeer et al.)',
+      'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=600'
+    );
+
+    insertFact.run(
+      'Sim-to-Real Transfer with Domain Randomization',
+      'Roboticists train neural policies across thousands of simulated parallel physics engines with randomized gravity, friction, and visual textures so that physical hardware works immediately upon zero-shot real-world deployment.',
+      'OpenAI famously taught a humanoid robot hand to solve a Rubik\'s cube entirely within simulated virtual physics before ever touching a real cube.',
+      'Robotics',
+      '2026-11-19',
+      'https://arxiv.org/abs/1910.07113',
+      'IEEE International Conference on Robotics and Automation (ICRA)',
+      'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=600'
+    );
+
+    insertFact.run(
+      'Autonomous Deep-Space Navigation Using Optical AI',
+      'Deep-space probes operating millions of kilometers beyond Earth use onboard edge vision algorithms to identify celestial constellations in real time without waiting for round-trip radio signals from ground control.',
+      'NASA\'s James Webb Space Telescope uses fine guidance sensors and autonomous star identification to maintain pointing stability with sub-milliarcsecond precision.',
+      'Space Technology',
+      '2026-11-18',
+      'https://www.jpl.nasa.gov',
+      'NASA Jet Propulsion Laboratory (JPL) Autonomous Systems',
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600'
+    );
+
+    insertFact.run(
+      'Post-Quantum Cryptography: Lattice-Based Key Exchange',
+      'With Shor\'s quantum algorithm capable of breaking traditional RSA and ECC encryption, global standards bodies (NIST) have standardized lattice-based cryptography that resists both classical and quantum supercomputing attacks.',
+      'CRYSTALS-Kyber and Dilithium are already being implemented across modern web browsers and TLS layers to guard against "harvest now, decrypt later" threats.',
+      'Cybersecurity',
+      '2026-11-17',
+      'https://csrc.nist.gov/projects/post-quantum-cryptography',
+      'NIST Post-Quantum Cryptography Standardization',
+      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600'
+    );
+
+    insertFact.run(
+      'Attention Mechanism: The Spark Behind the Transformer Revolution',
+      'Introduced in the seminal paper "Attention Is All You Need", self-attention allows a neural network to weigh the contextual importance of all words in a sequence simultaneously rather than reading sequentially like an RNN.',
+      'When reading "The animal didn\'t cross the street because it was too tired", the attention matrix links "it" directly to "animal" rather than "street".',
+      'Artificial Intelligence',
+      '2026-11-16',
+      'https://arxiv.org/abs/1706.03762',
+      'NeurIPS 2017: Attention Is All You Need (Vaswani et al.)',
+      'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600'
+    );
+
+    insertFact.run(
+      'Liquid Neural Networks: Time-Continuous Adaptive AI',
+      'Inspired by the microscopic nematode C. elegans, liquid networks model synaptic connections with differential equations, allowing models to adapt dynamically to changing environmental inputs even after training.',
+      'Autonomous drones powered by liquid networks can follow targets through dense forests without requiring hundreds of gigabytes of training flight hours.',
+      'Machine Learning',
+      '2026-11-15',
+      'https://news.mit.edu/2021/machine-learning-adapts-0128',
+      'MIT Computer Science & Artificial Intelligence Laboratory (CSAIL)',
+      'https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=600'
+    );
+  }
+
+  // 6. Initial Puzzle Questions
+  const existingPuzzles = db.prepare('SELECT COUNT(*) as count FROM puzzle_questions').get().count;
+  if (existingPuzzles === 0) {
+    const insertPuzzle = db.prepare(`
+      INSERT INTO puzzle_questions (
+        game_type, title, question_text, code_snippet, options_json,
+        correct_option_index, explanation, difficulty, points_reward,
+        is_daily_challenge, challenge_date, is_published
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `);
+
+    // 1. Daily Brain Teaser
+    insertPuzzle.run(
+      'brain_teaser',
+      'The 8-Ball Balance Weighing Riddle',
+      'You have 8 identical-looking billiard balls. One of them is slightly heavier than the other 7. You have a traditional two-pan balance scale. What is the MINIMUM number of weighings required to guarantee finding the heavy ball?',
+      null,
+      JSON.stringify(['1 weighing', '2 weighings', '3 weighings', '4 weighings']),
+      1, // 2 weighings
+      'Divide the 8 balls into groups: 3, 3, and 2. Weigh 3 vs 3. If balanced, the heavy ball is in the remaining 2 (weigh 1 vs 1 = 2 weighings total). If unbalanced, take the heavier group of 3, weigh 1 vs 1: if balanced, the 3rd is heavy; if not, the scale reveals it. Exactly 2 weighings are sufficient.',
+      'Medium',
+      15,
+      1,
+      new Date().toISOString().split('T')[0]
+    );
+
+    // 2. Coding Puzzle
+    insertPuzzle.run(
+      'coding_puzzle',
+      'JavaScript Event Loop & Microtask Priority',
+      'What will be printed to the console when the following JavaScript code executes?',
+      `console.log('1');
+setTimeout(() => console.log('2'), 0);
+Promise.resolve().then(() => console.log('3'));
+console.log('4');`,
+      JSON.stringify(['1, 2, 3, 4', '1, 4, 2, 3', '1, 4, 3, 2', '3, 1, 4, 2']),
+      2, // '1, 4, 3, 2'
+      'Synchronous code executes first: "1" then "4". Microtasks (Promise.then) run before Macrotasks (setTimeout): so "3" logs before "2". Total order: 1, 4, 3, 2.',
+      'Medium',
+      15,
+      0,
+      null
+    );
+
+    // 3. Mathematical Challenge
+    insertPuzzle.run(
+      'math_challenge',
+      'Algorithmic Number Series Induction',
+      'Find the missing integer in the following series: 2, 6, 12, 20, 30, 42, ?',
+      null,
+      JSON.stringify(['48', '54', '56', '60']),
+      2, // 56
+      'Each term equals n * (n + 1) for n = 1, 2, 3, 4, 5, 6, 7. Thus for n = 7: 7 * 8 = 56. Alternatively, differences increase by 2: +4, +6, +8, +10, +12, +14 (42 + 14 = 56).',
+      'Easy',
+      10,
+      0,
+      null
+    );
+
+    // 4. Logical Reasoning
+    insertPuzzle.run(
+      'logical_reasoning',
+      'Knights and Knaves Island Deduction',
+      'On an island, Knights always tell the truth and Knaves always lie. You meet two islanders, A and B. Islander A says: "At least one of us is a Knave." What are A and B?',
+      null,
+      JSON.stringify([
+        'Both A and B are Knaves',
+        'A is a Knight and B is a Knave',
+        'A is a Knave and B is a Knight',
+        'Both A and B are Knights'
+      ]),
+      1, // A is Knight, B is Knave
+      'If A were a Knave, his statement would be false, meaning neither is a Knave (both are Knights), a contradiction. Hence, A must be a Knight telling the truth. Since his statement is true, at least one is a Knave, which means B must be the Knave.',
+      'Hard',
+      20,
+      0,
+      null
+    );
+
+    // 5. General Tech Quiz
+    insertPuzzle.run(
+      'tech_quiz',
+      'GPU Tensor Cores vs Standard CUDA Cores',
+      'What specialized mathematical operation are NVIDIA Tensor Cores hardware-accelerated to perform in a single clock cycle?',
+      null,
+      JSON.stringify([
+        'Fast Fourier Transform (FFT)',
+        'Mixed-Precision Matrix Multiply-Accumulate (MMA: D = A * B + C)',
+        'Ray-tracing Bounding Volume Hierarchy (BVH) traversal',
+        'Cryptographic SHA-256 hash rounds'
+      ]),
+      1, // Mixed-Precision Matrix Multiply-Accumulate
+      'Tensor Cores are specialized hardware execution units designed specifically for Mixed-Precision Matrix Multiply and Accumulate (D = A * B + C) operations, which form the bedrock of neural network forward passes and backpropagation.',
+      'Medium',
+      10,
+      0,
+      null
+    );
+
+    // 6. Coding Puzzle 2 (Python Scoping)
+    insertPuzzle.run(
+      'coding_puzzle',
+      'Python Late-Binding Closure Gotcha',
+      'What is the output of the following Python snippet?',
+      `funcs = [lambda x: x + i for i in range(3)]
+print([f(10) for f in funcs])`,
+      JSON.stringify(['[10, 11, 12]', '[12, 12, 12]', '[10, 10, 10]', 'TypeError']),
+      1, // [12, 12, 12]
+      'In Python, closures bind variables by reference, not value. By the time the functions execute, the loop has completed and i = 2 for all closures. Thus 10 + 2 = 12 for all three functions: [12, 12, 12].',
+      'Hard',
+      20,
+      0,
+      null
+    );
+  }
+
+  // 7. Upgraded Big Tech Events & Hackathons
+  const existingBigTech = db.prepare("SELECT COUNT(*) as count FROM events WHERE organizer != 'NIAT'").get().count;
+  if (existingBigTech === 0) {
+    const insertEvent = db.prepare(`
+      INSERT INTO events (
+        title, category, description, event_date, start_time, end_time,
+        location_type, venue_or_link, speaker_name, speaker_title, capacity, status,
+        organizer, registration_url, registration_deadline, eligibility_criteria,
+        banner_url, is_featured, source_verified, last_verified_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PUBLISHED', ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    insertEvent.run(
+      'Google Cloud GenAI Hackathon 2026',
+      'Hackathons',
+      'Build autonomous AI agents, multimodal search engines, and real-time reasoning applications using Google Gemini 2.0 and Vertex AI. Top 3 teams win cash grants of ₹5,00,000 and direct interview tracks at leading AI labs.',
+      '2026-12-12',
+      '09:00 AM',
+      '06:00 PM',
+      'Online',
+      'https://developers.google.com/events/genai-hackathon',
+      'Sundar Pichai & Google Developer Relations',
+      'Developer Keynote',
+      500,
+      'Google',
+      'https://developers.google.com/events/genai-hackathon',
+      '2026-12-05',
+      'Open to all engineering students and aspiring developers across India.',
+      'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800',
+      1,
+      'Verified via Official Google Developers Portal',
+      '2026-11-19'
+    );
+
+    insertEvent.run(
+      'Smart India Hackathon 2026 – NIAT Campus Qualifier',
+      'Hackathons',
+      'National flagship innovation challenge by Ministry of Education. NIAT internal qualifier to shortlist teams representing the institute in AI, smart automation, and cybersecurity problem statements.',
+      '2026-12-18',
+      '10:00 AM',
+      '05:00 PM',
+      'Campus',
+      'NIAT Innovation & Incubation Center, Academic Block B, Hyderabad',
+      'Prof. Dr. Rajesh Rao',
+      'Dean of Academic Competitions',
+      200,
+      'NIAT',
+      'https://niat.edu.in/sih-2026',
+      '2026-12-10',
+      'Enrolled and prospective NIAT Class 12 and B.Tech candidates.',
+      'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800',
+      1,
+      'Verified NIAT Academic Council',
+      '2026-11-19'
+    );
+
+    insertEvent.run(
+      'Google I/O Extended 2026 – Bengaluru Campus Watch Party',
+      'Big Tech Events',
+      'Join fellow developers, student innovators, and Google Developer Experts for live deep dives into Android, Flutter, WebAssembly, and Gemini reasoning architectures.',
+      '2026-12-22',
+      '02:00 PM',
+      '07:00 PM',
+      'Online',
+      'https://io.google/2026/extended',
+      'Google Developer Group (GDG) India',
+      'Community Organizers',
+      350,
+      'Google',
+      'https://io.google/2026/extended',
+      '2026-12-20',
+      'Free admission for student developers. Pre-registration mandatory.',
+      'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800',
+      1,
+      'Verified Google Developer Groups Network',
+      '2026-11-19'
+    );
+
+    insertEvent.run(
+      'NVIDIA GTC AI Developer Workshop: Hands-on LLM Fine-Tuning',
+      'AI and Machine Learning Events',
+      'Interactive masterclass on Low-Rank Adaptation (LoRA), Quantization (QLoRA), and deploying high-throughput inference endpoints with NVIDIA TensorRT-LLM and Triton.',
+      '2026-12-28',
+      '04:00 PM',
+      '07:00 PM',
+      'Online',
+      'https://www.nvidia.com/gtc/developer-workshops',
+      'NVIDIA Deep Learning Institute (DLI)',
+      'Certified Instructors',
+      300,
+      'NVIDIA',
+      'https://www.nvidia.com/gtc/developer-workshops',
+      '2026-12-25',
+      'Basic knowledge of Python and PyTorch recommended.',
+      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800',
+      1,
+      'Verified NVIDIA Deep Learning Institute',
+      '2026-11-19'
+    );
+
+    insertEvent.run(
+      'Microsoft Build 2026 Student AI Showcase',
+      'Developer Conferences',
+      'Global student track featuring Copilot stack extensions, Semantic Kernel, and deploying scalable cloud intelligence on Microsoft Azure.',
+      '2027-01-08',
+      '03:30 PM',
+      '06:30 PM',
+      'Online',
+      'https://build.microsoft.com/student-zone',
+      'Microsoft Learn Student Ambassadors',
+      'Program Mentors',
+      400,
+      'Microsoft',
+      'https://build.microsoft.com/student-zone',
+      '2027-01-04',
+      'Open to all enrolled students with active GitHub Student Developer Pack.',
+      'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800',
+      0,
+      'Verified Microsoft Learn Network',
+      '2026-11-19'
+    );
+  }
+
+  // 8. Initialize Streaks for Rahul Sharma
+  db.prepare(`
+    INSERT OR REPLACE INTO student_streaks (user_id, current_streak, longest_streak, last_attempt_date, total_games_played, total_correct, total_game_points)
+    VALUES (2, 3, 5, ?, 6, 5, 65)
+  `).run(new Date().toISOString().split('T')[0]);
+
+  console.log('✅ NIAT Connect 2.0 expansion data initialized successfully.');
+}
+
 module.exports = seedDatabase;
+module.exports.seedDatabase = seedDatabase;
+module.exports.seedNiat2Expansion = seedNiat2Expansion;

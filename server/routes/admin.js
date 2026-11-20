@@ -637,6 +637,99 @@ router.get('/analytics', (req, res) => {
   }
 });
 
+// GET /api/admin/expansion-overview – Comprehensive NIAT 2.0 KPI Summary
+router.get('/expansion-overview', (req, res) => {
+  try {
+    // 1. Referral Stats
+    const refStats = db.prepare(`
+      SELECT 
+        COUNT(*) as total_referrals,
+        COALESCE(SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END), 0) as approved_referrals,
+        COALESCE(SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END), 0) as pending_referrals,
+        COALESCE(SUM(points_awarded), 0) as points_distributed
+      FROM student_referrals
+    `).get();
+
+    // 2. Swag Stats
+    const swagStats = db.prepare(`
+      SELECT 
+        COUNT(*) as total_redemptions,
+        COALESCE(SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END), 0) as pending_redemptions,
+        COALESCE(SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END), 0) as delivered_redemptions,
+        COALESCE(SUM(points_spent), 0) as total_points_spent
+      FROM swag_redemptions
+      WHERE status != 'Rejected'
+    `).get();
+
+    // Most redeemed product
+    const topProduct = db.prepare(`
+      SELECT sp.name, COUNT(sr.id) as count
+      FROM swag_redemptions sr
+      JOIN swag_products sp ON sr.product_id = sp.id
+      WHERE sr.status != 'Rejected'
+      GROUP BY sp.id
+      ORDER BY count DESC
+      LIMIT 1
+    `).get();
+
+    // 3. Puzzle & Player Stats
+    const puzzleStats = db.prepare(`
+      SELECT 
+        COUNT(DISTINCT user_id) as active_players,
+        COUNT(*) as total_attempts,
+        COALESCE(SUM(is_correct), 0) as total_correct
+      FROM puzzle_attempts
+    `).get();
+
+    // Top Leaderboard Student
+    const topPlayer = db.prepare(`
+      SELECT u.name, ss.total_game_points, ss.current_streak
+      FROM student_streaks ss
+      JOIN users u ON ss.user_id = u.id
+      ORDER BY ss.total_game_points DESC
+      LIMIT 1
+    `).get();
+
+    // 4. Events Stats
+    const eventsStats = db.prepare(`
+      SELECT 
+        COUNT(*) as total_events,
+        COALESCE(SUM(CASE WHEN status = 'PUBLISHED' THEN 1 ELSE 0 END), 0) as published_events,
+        COALESCE(SUM(CASE WHEN is_featured = 1 THEN 1 ELSE 0 END), 0) as featured_events
+      FROM events
+    `).get();
+
+    return res.json({
+      referrals: {
+        total: refStats.total_referrals,
+        approved: refStats.approved_referrals,
+        pending: refStats.pending_referrals,
+        points_distributed: refStats.points_distributed
+      },
+      swag: {
+        total_redemptions: swagStats.total_redemptions,
+        pending_redemptions: swagStats.pending_redemptions,
+        delivered: swagStats.delivered_redemptions,
+        points_spent: swagStats.total_points_spent,
+        top_product: topProduct ? topProduct.name : 'NIAT Signature T-Shirt'
+      },
+      puzzles: {
+        active_players: puzzleStats.active_players,
+        total_attempts: puzzleStats.total_attempts,
+        total_correct: puzzleStats.total_correct,
+        top_player: topPlayer ? `${topPlayer.name} (${topPlayer.total_game_points} pts)` : 'None'
+      },
+      events: {
+        total: eventsStats.total_events,
+        published: eventsStats.published_events,
+        featured: eventsStats.featured_events
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to load expansion overview: ' + err.message });
+  }
+});
+
 // ==========================================
 // D. FOLLOW-UP MANAGEMENT
 // ==========================================
@@ -776,7 +869,9 @@ router.get('/events', (req, res) => {
 router.post('/events', (req, res) => {
   const {
     title, category, description, event_date, start_time, end_time,
-    location_type, venue_or_link, speaker_name, speaker_title, capacity, status
+    location_type, venue_or_link, speaker_name, speaker_title, capacity, status,
+    organizer, registration_url, registration_deadline, eligibility_criteria,
+    banner_url, is_featured, source_verified, last_verified_at
   } = req.body;
 
   if (!title || !category || !event_date || !start_time || !venue_or_link) {
@@ -787,21 +882,31 @@ router.post('/events', (req, res) => {
     const result = db.prepare(`
       INSERT INTO events (
         title, category, description, event_date, start_time, end_time,
-        location_type, venue_or_link, speaker_name, speaker_title, capacity, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        location_type, venue_or_link, speaker_name, speaker_title, capacity, status,
+        organizer, registration_url, registration_deadline, eligibility_criteria,
+        banner_url, is_featured, source_verified, last_verified_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       title.trim(),
       category,
-      description || 'Official NIAT event for prospective applicants and tech builders.',
+      description || 'Official educational or technical event for prospective applicants and tech builders.',
       event_date,
       start_time,
       end_time || '1 hour duration',
       location_type || 'Online',
       venue_or_link.trim(),
-      speaker_name || 'NIAT Admissions Team',
-      speaker_title || 'Faculty Representative',
+      speaker_name || (organizer ? `${organizer} Team` : 'NIAT Admissions Team'),
+      speaker_title || 'Event Lead',
       capacity ? parseInt(capacity, 10) : 100,
-      status || 'PUBLISHED'
+      status || 'PUBLISHED',
+      organizer || 'NIAT',
+      registration_url || null,
+      registration_deadline || null,
+      eligibility_criteria || null,
+      banner_url || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800',
+      is_featured ? 1 : 0,
+      source_verified || 'Verified Academic Committee',
+      last_verified_at || new Date().toISOString().split('T')[0]
     );
 
     // Broadcast notification to prospective students
@@ -809,7 +914,7 @@ router.post('/events', (req, res) => {
       db.prepare(`
         INSERT INTO notifications (user_id, target_role, title, message, type, link)
         VALUES (NULL, 'STUDENT', ?, ?, 'EVENT', '/student/calendar')
-      `).run(`New Event: ${title.trim()}`, `Join us for "${title.trim()}" on ${event_date}. Click to reserve your free seat.`);
+      `).run(`New Event: ${title.trim()}`, `Explore "${title.trim()}" hosted by ${organizer || 'NIAT'} on ${event_date}. Save your spot now!`);
     }
 
     return res.status(201).json({ message: 'Event created successfully', eventId: result.lastInsertRowid });
@@ -827,7 +932,9 @@ router.put('/events/:id', (req, res) => {
 
   const {
     title, category, description, event_date, start_time, end_time,
-    location_type, venue_or_link, speaker_name, speaker_title, capacity, status
+    location_type, venue_or_link, speaker_name, speaker_title, capacity, status,
+    organizer, registration_url, registration_deadline, eligibility_criteria,
+    banner_url, is_featured, source_verified, last_verified_at
   } = req.body;
 
   try {
@@ -835,7 +942,10 @@ router.put('/events/:id', (req, res) => {
       UPDATE events SET
         title = ?, category = ?, description = ?, event_date = ?,
         start_time = ?, end_time = ?, location_type = ?, venue_or_link = ?,
-        speaker_name = ?, speaker_title = ?, capacity = ?, status = ?
+        speaker_name = ?, speaker_title = ?, capacity = ?, status = ?,
+        organizer = ?, registration_url = ?, registration_deadline = ?,
+        eligibility_criteria = ?, banner_url = ?, is_featured = ?,
+        source_verified = ?, last_verified_at = ?
       WHERE id = ?
     `).run(
       title || existing.title,
@@ -850,6 +960,14 @@ router.put('/events/:id', (req, res) => {
       speaker_title || existing.speaker_title,
       capacity !== undefined ? parseInt(capacity, 10) : existing.capacity,
       status || existing.status,
+      organizer !== undefined ? organizer : existing.organizer,
+      registration_url !== undefined ? registration_url : existing.registration_url,
+      registration_deadline !== undefined ? registration_deadline : existing.registration_deadline,
+      eligibility_criteria !== undefined ? eligibility_criteria : existing.eligibility_criteria,
+      banner_url !== undefined ? banner_url : existing.banner_url,
+      is_featured !== undefined ? (is_featured ? 1 : 0) : existing.is_featured,
+      source_verified !== undefined ? source_verified : existing.source_verified,
+      last_verified_at !== undefined ? last_verified_at : existing.last_verified_at,
       eventId
     );
 

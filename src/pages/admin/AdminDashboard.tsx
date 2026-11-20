@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getApiUrl } from '../../config/api';
-import { AISummary, Lead, FollowUp, EventItem } from '../../types';
+import { AISummary, Lead, FollowUp, EventItem, ExpansionOverview } from '../../types';
 import {
   Users,
   Sparkles,
@@ -17,7 +17,12 @@ import {
   PhoneCall,
   Clock,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Gift,
+  ShoppingBag,
+  Brain,
+  Trophy,
+  BookOpen
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
@@ -27,17 +32,19 @@ export const AdminDashboard: React.FC = () => {
   const [recentHotLeads, setRecentHotLeads] = useState<Lead[]>([]);
   const [upcomingFollowUps, setUpcomingFollowUps] = useState<FollowUp[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<EventItem[]>([]);
+  const [expansion, setExpansion] = useState<ExpansionOverview | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
     if (!token) return;
     try {
       setLoading(true);
-      const [sumRes, leadsRes, followRes, eventsRes] = await Promise.all([
+      const [sumRes, leadsRes, followRes, eventsRes, expRes] = await Promise.all([
         fetch(getApiUrl('/api/admin/ai/summary'), { headers: { Authorization: `Bearer ${token}` } }),
         fetch(getApiUrl('/api/admin/leads?classification=Hot'), { headers: { Authorization: `Bearer ${token}` } }),
         fetch(getApiUrl('/api/admin/follow-ups?status=PENDING'), { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(getApiUrl('/api/admin/events'), { headers: { Authorization: `Bearer ${token}` } })
+        fetch(getApiUrl('/api/admin/events'), { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(getApiUrl('/api/admin/expansion-overview'), { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
       if (sumRes.ok) {
@@ -55,6 +62,10 @@ export const AdminDashboard: React.FC = () => {
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json();
         setUpcomingEvents((eventsData.events || []).slice(0, 3));
+      }
+      if (expRes.ok) {
+        const expData = await expRes.json();
+        setExpansion(expData);
       }
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
@@ -175,6 +186,118 @@ export const AdminDashboard: React.FC = () => {
             <span>Inquiry to Admitted</span>
             <Link to="/admin/analytics" className="font-semibold hover:underline flex items-center gap-0.5">
               Funnel Stats <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* NIAT CONNECT 2.0 – Feature Expansion Operational Metrics */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            NIAT Connect 2.0 Engagement & Operational Modules
+          </span>
+          <span className="text-xs text-slate-400">Student Portal Integrations</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Student Referrals */}
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-3 hover:shadow-md transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-600">Referral Engine</span>
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Gift className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-slate-900">
+                {expansion?.referrals.approved || 0} <span className="text-xs font-normal text-slate-500">/ {expansion?.referrals.total || 0} Total</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {expansion?.referrals.points_distributed || 0} reward pts awarded • {expansion?.referrals.pending || 0} pending
+              </p>
+            </div>
+            <Link
+              to="/admin/referrals"
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 pt-1 border-t border-slate-100"
+            >
+              <span>Manage Referrals</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {/* Card 2: Swag Store Redemptions */}
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-3 hover:shadow-md transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-600">Swag Store Orders</span>
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <ShoppingBag className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-slate-900">
+                {expansion?.swag.total_redemptions || 0} <span className="text-xs font-normal text-slate-500">Orders</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Top item: <strong className="text-slate-800">{expansion?.swag.top_product || 'NIAT T-Shirt'}</strong>
+              </p>
+            </div>
+            <Link
+              to="/admin/swag-store"
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 pt-1 border-t border-slate-100"
+            >
+              <span>Fulfill Orders ({expansion?.swag.pending_redemptions || 0} pending)</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {/* Card 3: Puzzle Players & Leaderboard */}
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-3 hover:shadow-md transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-600">Puzzle Games</span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Brain className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-slate-900">
+                {expansion?.puzzles.active_players || 0} <span className="text-xs font-normal text-slate-500">Active Players</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Top student: <strong className="text-slate-800">{expansion?.puzzles.top_player || 'Rahul Sharma'}</strong>
+              </p>
+            </div>
+            <Link
+              to="/admin/puzzles"
+              className="text-xs font-semibold text-amber-600 hover:text-amber-800 flex items-center gap-1 pt-1 border-t border-slate-100"
+            >
+              <span>Manage Questions ({expansion?.puzzles.total_attempts || 0} solved)</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {/* Card 4: Big Tech Events & Hackathons */}
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-3 hover:shadow-md transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-600">Tech Events & Hackathons</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Calendar className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-slate-900">
+                {expansion?.events.published || 0} <span className="text-xs font-normal text-slate-500">Published</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {expansion?.events.featured || 0} featured Big Tech (Google, NVIDIA, etc.)
+              </p>
+            </div>
+            <Link
+              to="/admin/events"
+              className="text-xs font-semibold text-emerald-600 hover:text-emerald-800 flex items-center gap-1 pt-1 border-t border-slate-100"
+            >
+              <span>Manage Calendar</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>

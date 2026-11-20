@@ -3,6 +3,7 @@ const { db } = require('../db');
 const { verifyToken, requireStudent } = require('../middleware/auth');
 const { runAgent } = require('../services/agent');
 const { registerForEvent, requestCounselling } = require('../services/studentActions');
+const { getStudentReferralBalance } = require('../services/rewardService');
 
 const router = express.Router();
 
@@ -70,13 +71,67 @@ router.get('/dashboard', (req, res) => {
       }
     ];
 
+    // Engagement Overview Data (NIAT 2.0)
+    const referralBal = getStudentReferralBalance(studentId);
+    const approvedRefs = db.prepare("SELECT COUNT(*) as cnt FROM student_referrals WHERE referrer_id = ? AND status = 'APPROVED'").get(studentId);
+    
+    // Latest Swag order
+    const latestSwag = db.prepare(`
+      SELECT sr.*, sp.name as product_name 
+      FROM swag_redemptions sr
+      JOIN swag_products sp ON sr.product_id = sp.id
+      WHERE sr.student_id = ?
+      ORDER BY sr.created_at DESC
+      LIMIT 1
+    `).get(studentId);
+
+    // Today's AI Fact
+    const today = new Date().toISOString().split('T')[0];
+    const todayFact = db.prepare(`
+      SELECT id, title, category, explanation, fact_date 
+      FROM ai_facts 
+      WHERE is_published = 1 AND fact_date <= ?
+      ORDER BY fact_date DESC, id DESC 
+      LIMIT 1
+    `).get(today);
+
+    // Student puzzle streak & rank
+    const studentStreak = db.prepare('SELECT current_streak, total_game_points FROM student_streaks WHERE user_id = ?').get(studentId);
+    const higherRankCount = db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM student_streaks 
+      WHERE total_game_points > ?
+    `).get(studentStreak ? studentStreak.total_game_points : 0);
+    const puzzleRank = (higherRankCount ? higherRankCount.count : 0) + 1;
+
+    // Upcoming Hackathons & Big Tech Events
+    const techEvents = db.prepare(`
+      SELECT id, title, category, organizer, event_date, banner_url, registration_url
+      FROM events
+      WHERE status = 'PUBLISHED' AND (category LIKE '%Hackathon%' OR category LIKE '%Big Tech%' OR organizer != 'NIAT')
+      ORDER BY event_date ASC
+      LIMIT 3
+    `).all();
+
+    const engagement = {
+      available_reward_points: referralBal.available,
+      total_successful_referrals: approvedRefs ? approvedRefs.cnt : 0,
+      latest_swag_order: latestSwag || null,
+      daily_ai_fact: todayFact || null,
+      puzzle_rank: puzzleRank,
+      current_streak: studentStreak ? studentStreak.current_streak : 0,
+      game_points: studentStreak ? studentStreak.total_game_points : 0,
+      tech_events: techEvents
+    };
+
     return res.json({
       user,
       profile,
       myEvents,
       upcomingEvents,
       counsellor,
-      announcements
+      announcements,
+      engagement
     });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to load student dashboard: ' + err.message });
@@ -160,15 +215,34 @@ router.get('/events', (req, res) => {
         e.*,
         (SELECT COUNT(*) FROM event_registrations er WHERE er.event_id = e.id) as registrations_count,
         CASE WHEN (SELECT 1 FROM event_registrations er WHERE er.event_id = e.id AND er.student_id = ?) IS NOT NULL THEN 1 ELSE 0 END as is_registered,
-        (SELECT ticket_number FROM event_registrations er WHERE er.event_id = e.id AND er.student_id = ?) as ticket_number
+        (SELECT ticket_number FROM event_registrations er WHERE er.event_id = e.id AND er.student_id = ?) as ticket_number,
+        CASE WHEN (SELECT 1 FROM event_bookmarks eb WHERE eb.event_id = e.id AND eb.user_id = ?) IS NOT NULL THEN 1 ELSE 0 END as is_bookmarked
       FROM events e
       WHERE e.status = 'PUBLISHED'
-      ORDER BY e.event_date ASC
-    `).all(studentId, studentId);
+      ORDER BY e.is_featured DESC, e.event_date ASC
+    `).all(studentId, studentId, studentId);
 
     return res.json({ events });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to load events: ' + err.message });
+  }
+});
+
+router.post('/events/:id/bookmark', (req, res) => {
+  const studentId = req.user.id;
+  const eventId = parseInt(req.params.id, 10);
+
+  try {
+    const existing = db.prepare('SELECT id FROM event_bookmarks WHERE user_id = ? AND event_id = ?').get(studentId, eventId);
+    if (existing) {
+      db.prepare('DELETE FROM event_bookmarks WHERE id = ?').run(existing.id);
+      return res.json({ bookmarked: false, message: 'Event removed from bookmarks' });
+    } else {
+      db.prepare('INSERT INTO event_bookmarks (user_id, event_id) VALUES (?, ?)').run(studentId, eventId);
+      return res.json({ bookmarked: true, message: 'Event bookmarked successfully' });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to bookmark event: ' + err.message });
   }
 });
 

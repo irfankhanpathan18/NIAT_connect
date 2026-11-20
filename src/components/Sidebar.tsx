@@ -14,7 +14,11 @@ import {
   MessageSquare,
   GraduationCap,
   Shield,
-  Layers
+  Layers,
+  Gift,
+  ShoppingBag,
+  Brain,
+  Lightbulb
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -25,14 +29,22 @@ export const Sidebar: React.FC = () => {
     { name: 'Lead Management CRM', path: '/admin/leads', icon: Users },
     { name: 'AI Lead Filtration', path: '/admin/ai-leads', icon: Sparkles, badge: 'AI' },
     { name: 'Lead Analytics', path: '/admin/analytics', icon: BarChart3 },
-    { name: 'Follow-up Schedule', path: '/admin/follow-ups', icon: CalendarCheck },
+    { name: 'Referral Management', path: '/admin/referrals', icon: Gift, badge: 'Rewards' },
+    { name: 'Swag Store Management', path: '/admin/swag-store', icon: ShoppingBag },
+    { name: 'AI Facts Management', path: '/admin/ai-facts', icon: Lightbulb },
+    { name: 'Puzzle Management', path: '/admin/puzzles', icon: Brain },
     { name: 'Event Management', path: '/admin/events', icon: Calendar },
+    { name: 'Follow-up Schedule', path: '/admin/follow-ups', icon: CalendarCheck },
     { name: 'RAG Knowledge Base', path: '/admin/knowledge-base', icon: BookOpen }
   ];
 
   const studentNav = [
     { name: 'Student Portal Home', path: '/student/dashboard', icon: LayoutDashboard },
-    { name: 'Events & Calendar', path: '/student/calendar', icon: Calendar },
+    { name: 'Refer & Earn', path: '/student/referrals', icon: Gift, badge: 'Rewards' },
+    { name: 'NIAT Swag Store', path: '/student/swag-store', icon: ShoppingBag },
+    { name: 'Daily AI Facts', path: '/student/ai-facts', icon: Lightbulb, badge: 'Daily' },
+    { name: 'Puzzle Games', path: '/student/puzzles', icon: Brain, badge: '🔥 Streak' },
+    { name: 'Events & Hackathons', path: '/student/calendar', icon: Calendar },
     { name: 'NIAT AI Assistant', path: '/student/ai-assistant', icon: MessageSquare, badge: 'RAG' },
     { name: 'My Profile & Status', path: '/student/profile', icon: UserCheck },
     { name: 'Admission Handbook & FAQs', path: '/student/faq', icon: HelpCircle }

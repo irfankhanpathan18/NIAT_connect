@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { db } = require('../db');
 const { JWT_SECRET, verifyToken } = require('../middleware/auth');
 const { evaluateLeadScore } = require('../services/aiService');
+const { getOrCreateReferralCode } = require('../services/rewardService');
 
 const router = express.Router();
 
@@ -85,6 +86,7 @@ router.post('/student/login', (req, res) => {
   }
 
   const profile = db.prepare('SELECT * FROM student_profiles WHERE user_id = ?').get(user.id);
+  const referralCode = getOrCreateReferralCode(user);
 
   const token = jwt.sign(
     { id: user.id, email: user.email, name: user.name, role: user.role },
@@ -103,7 +105,8 @@ router.post('/student/login', (req, res) => {
       role: user.role,
       status: user.status,
       avatar_url: user.avatar_url,
-      profile: profile || null
+      profile: profile || null,
+      referral_code: referralCode
     }
   });
 });
@@ -161,6 +164,59 @@ router.post('/student/register', (req, res) => {
     req.body.dream_career || 'Software / AI Engineer'
   );
 
+  // Generate unique referral code for the new student
+  const studentReferralCode = getOrCreateReferralCode({ id: userId, name: name.trim() });
+
+  // Initialize student streak tracking for puzzle games
+  try {
+    db.prepare(`
+      INSERT OR IGNORE INTO student_streaks (user_id, current_streak, longest_streak, total_games_played, total_correct, total_game_points)
+      VALUES (?, 0, 0, 0, 0, 0)
+    `).run(userId);
+  } catch (e) {
+    // Ignore if table exists or already initialized
+  }
+
+  // Handle incoming referral code if provided
+  let leadSource = 'Website';
+  let referralNote = 'Direct online registration on NIAT Connect student portal.';
+  const incomingRefCode = req.body.referral_code ? req.body.referral_code.trim().toUpperCase() : null;
+
+  if (incomingRefCode) {
+    const refRecord = db.prepare('SELECT user_id, code FROM referral_codes WHERE UPPER(code) = ?').get(incomingRefCode);
+    if (refRecord && refRecord.user_id !== userId) {
+      // Prevent duplicate referral recording for same student email or phone
+      const priorRef = db.prepare('SELECT id FROM student_referrals WHERE referred_email = ? OR referred_phone = ?').get(trimmedEmail, trimmedPhone);
+      if (!priorRef) {
+        db.prepare(`
+          INSERT INTO student_referrals (
+            referrer_id, referred_user_id, referral_code, referred_name, referred_email, referred_phone, status, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
+        `).run(
+          refRecord.user_id,
+          userId,
+          incomingRefCode,
+          name.trim(),
+          trimmedEmail,
+          trimmedPhone,
+          `Referred via code ${incomingRefCode}`
+        );
+
+        leadSource = 'Student Referral';
+        referralNote = `Referred by student ID #${refRecord.user_id} using code ${incomingRefCode}. Awaiting admin verification for reward credit.`;
+
+        // Notify referring student
+        db.prepare(`
+          INSERT INTO notifications (user_id, target_role, title, message, type, link)
+          VALUES (?, 'STUDENT', 'New Referral Registered!', ?, 'ADMISSION', '/student/referrals')
+        `).run(
+          refRecord.user_id,
+          `Your referred friend ${name.trim()} just registered on NIAT Connect! Once verified by our admissions team, reward points will be credited to your account.`
+        );
+      }
+    }
+  }
+
   // 3. Automatically mirror into CRM Leads so admission officers see this lead in real-time
   const leadObj = {
     student_name: name.trim(),
@@ -172,12 +228,12 @@ router.post('/student/register', (req, res) => {
     city: city || 'Not Specified',
     state: state || 'Not Specified',
     interested_program: interested_program || 'B.Tech CSE (AI & ML)',
-    lead_source: 'Website',
+    lead_source: leadSource,
     admission_interest_level: 'High',
     counselling_status: 'New',
     assigned_counsellor_id: 1, // assign to default counsellor
     follow_up_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    notes: 'Direct online registration on NIAT Connect student portal.'
+    notes: referralNote
   };
 
   const leadRes = db.prepare(`
@@ -238,7 +294,8 @@ router.post('/student/register', (req, res) => {
       phone: trimmedPhone,
       role: 'STUDENT',
       status: 'ACTIVE',
-      profile
+      profile,
+      referral_code: studentReferralCode
     }
   });
 });

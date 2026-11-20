@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getApiUrl } from '../../config/api';
-import { GraduationCap, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { GraduationCap, ArrowRight, AlertCircle, CheckCircle, Gift, Sparkles } from 'lucide-react';
 
 export const StudentRegister: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,8 +18,19 @@ export const StudentRegister: React.FC = () => {
     city: '',
     state: '',
     interested_program: 'B.Tech CSE (AI & ML)',
-    dream_career: 'AI & Machine Learning Engineer'
+    dream_career: 'AI & Machine Learning Engineer',
+    referral_code: ''
   });
+
+  const [hasRefFromUrl, setHasRefFromUrl] = useState(false);
+
+  useEffect(() => {
+    const ref = searchParams.get('ref') || searchParams.get('referral');
+    if (ref) {
+      setFormData(prev => ({ ...prev, referral_code: ref.trim().toUpperCase() }));
+      setHasRefFromUrl(true);
+    }
+  }, [searchParams]);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -308,6 +320,34 @@ export const StudentRegister: React.FC = () => {
                     className="mt-1 block w-full rounded-xl bg-slate-50 border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Section 5: Referral Code (Optional) */}
+            <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-purple-50/40 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1.5">
+                  <Gift className="h-4 w-4 text-indigo-600" />
+                  Referral Invitation (Optional)
+                </h3>
+                {hasRefFromUrl && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                    <CheckCircle className="h-3 w-3" /> Auto-Applied via Link
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-600 mb-3">
+                Have an invitation or friend code from an existing NIAT student? Enter it below to link your admission profile to the student rewards program.
+              </p>
+              <div className="max-w-xs">
+                <input
+                  type="text"
+                  name="referral_code"
+                  value={formData.referral_code}
+                  onChange={e => setFormData({ ...formData, referral_code: e.target.value.toUpperCase() })}
+                  placeholder="e.g. NIAT-RAHUL-7821"
+                  className="block w-full rounded-xl bg-white border border-indigo-200 px-3 py-2 text-xs font-mono font-semibold tracking-wider text-indigo-900 uppercase placeholder:text-slate-400 placeholder:normal-case placeholder:font-sans focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 shadow-sm"
+                />
               </div>
             </div>
 

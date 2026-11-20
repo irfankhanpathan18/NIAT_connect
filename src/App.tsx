@@ -21,6 +21,10 @@ import { LeadAnalytics } from './pages/admin/LeadAnalytics';
 import { FollowUpManagement } from './pages/admin/FollowUpManagement';
 import { EventManager } from './pages/admin/EventManager';
 import { KnowledgeBaseManager } from './pages/admin/KnowledgeBaseManager';
+import { ReferralManagement } from './pages/admin/ReferralManagement';
+import { SwagStoreManagement } from './pages/admin/SwagStoreManagement';
+import { AIFactsManagement } from './pages/admin/AIFactsManagement';
+import { PuzzleManagement } from './pages/admin/PuzzleManagement';
 
 // Student Pages
 import { StudentDashboard } from './pages/student/StudentDashboard';
@@ -28,6 +32,10 @@ import { EventCalendar } from './pages/student/EventCalendar';
 import { AIChatbot } from './pages/student/AIChatbot';
 import { StudentProfilePage } from './pages/student/StudentProfile';
 import { FAQAndGuidelines } from './pages/student/FAQAndGuidelines';
+import { StudentReferrals } from './pages/student/StudentReferrals';
+import { SwagStore } from './pages/student/SwagStore';
+import { AIFactsPage } from './pages/student/AIFactsPage';
+import { PuzzleGames } from './pages/student/PuzzleGames';
 
 const AuthenticatedLayout: React.FC = () => {
   return (
@@ -47,6 +55,10 @@ const AuthenticatedLayout: React.FC = () => {
               <Route path="/admin/leads" element={<LeadManagement />} />
               <Route path="/admin/ai-leads" element={<AILeadFiltration />} />
               <Route path="/admin/analytics" element={<LeadAnalytics />} />
+              <Route path="/admin/referrals" element={<ReferralManagement />} />
+              <Route path="/admin/swag-store" element={<SwagStoreManagement />} />
+              <Route path="/admin/ai-facts" element={<AIFactsManagement />} />
+              <Route path="/admin/puzzles" element={<PuzzleManagement />} />
               <Route path="/admin/follow-ups" element={<FollowUpManagement />} />
               <Route path="/admin/events" element={<EventManager />} />
               <Route path="/admin/knowledge-base" element={<KnowledgeBaseManager />} />
@@ -55,6 +67,10 @@ const AuthenticatedLayout: React.FC = () => {
             {/* Student Routes */}
             <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
               <Route path="/student/dashboard" element={<StudentDashboard />} />
+              <Route path="/student/referrals" element={<StudentReferrals />} />
+              <Route path="/student/swag-store" element={<SwagStore />} />
+              <Route path="/student/ai-facts" element={<AIFactsPage />} />
+              <Route path="/student/puzzles" element={<PuzzleGames />} />
               <Route path="/student/calendar" element={<EventCalendar />} />
               <Route path="/student/ai-assistant" element={<AIChatbot />} />
               <Route path="/student/profile" element={<StudentProfilePage />} />
