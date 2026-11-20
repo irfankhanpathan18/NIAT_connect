@@ -52,7 +52,7 @@ export const PuzzleManagement: React.FC = () => {
   const fetchPuzzles = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/admin/puzzles`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/puzzles`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -109,8 +109,8 @@ export const PuzzleManagement: React.FC = () => {
     e.preventDefault();
     try {
       const url = editingPuzzle
-        ? `${API_BASE_URL}/admin/puzzles/${editingPuzzle.id}`
-        : `${API_BASE_URL}/admin/puzzles`;
+        ? `${API_BASE_URL}/api/admin/puzzles/${editingPuzzle.id}`
+        : `${API_BASE_URL}/api/admin/puzzles`;
       const method = editingPuzzle ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -137,7 +137,7 @@ export const PuzzleManagement: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm('Delete this puzzle question?')) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/puzzles/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/puzzles/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });

@@ -260,7 +260,7 @@ function initSchema(db) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (product_id) REFERENCES swag_products(id) ON DELETE CASCADE
+      FOREIGN KEY (product_id) REFERENCES swag_products(id) ON DELETE RESTRICT
     );
 
     -- 4. Daily AI Facts

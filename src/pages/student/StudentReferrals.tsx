@@ -47,7 +47,7 @@ export const StudentReferrals: React.FC = () => {
   const fetchReferralData = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/student/referrals`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/referrals`, {
         headers: {
           Authorization: `Bearer ${token}`
         }

@@ -70,7 +70,7 @@ export const PuzzleGames: React.FC = () => {
   const fetchPuzzles = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/student/puzzles`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/puzzles`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -86,7 +86,7 @@ export const PuzzleGames: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/student/puzzles/my-stats`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/puzzles/my-stats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -101,7 +101,7 @@ export const PuzzleGames: React.FC = () => {
 
   const fetchLeaderboard = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/student/puzzles/leaderboard`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/puzzles/leaderboard`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -120,7 +120,7 @@ export const PuzzleGames: React.FC = () => {
 
     try {
       setSubmittingId(puzzleId);
-      const res = await fetch(`${API_BASE_URL}/student/puzzles/${puzzleId}/submit`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/puzzles/${puzzleId}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -222,7 +222,7 @@ export const PuzzleGames: React.FC = () => {
 
   const completeMemoryGame = async (finalMoves: number) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/student/puzzles/memory-game/complete`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/puzzles/memory-game/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

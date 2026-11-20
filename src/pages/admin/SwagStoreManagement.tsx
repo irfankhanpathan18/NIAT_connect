@@ -20,6 +20,18 @@ import { API_BASE_URL } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import { SwagProductItem, SwagRedemptionItem, RedemptionStatus } from '../../types';
 
+// Orders only move forward through these stages (the server enforces the same rule).
+const ORDER_FLOW: RedemptionStatus[] = ['Pending', 'Approved', 'Processing', 'Ready for Collection', 'Delivered'];
+
+const readError = async (res: Response, fallback: string) => {
+  try {
+    const data = await res.json();
+    return data.error || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export const SwagStoreManagement: React.FC = () => {
   const { token } = useAuth();
   const [products, setProducts] = useState<SwagProductItem[]>([]);
@@ -53,8 +65,8 @@ export const SwagStoreManagement: React.FC = () => {
     try {
       setLoading(true);
       const [prodRes, redRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/admin/swag/products`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE_URL}/admin/swag/redemptions`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${API_BASE_URL}/api/admin/swag/products`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/api/admin/swag/redemptions`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
       if (prodRes.ok) {
@@ -105,8 +117,8 @@ export const SwagStoreManagement: React.FC = () => {
     e.preventDefault();
     try {
       const url = editingProduct
-        ? `${API_BASE_URL}/admin/swag/products/${editingProduct.id}`
-        : `${API_BASE_URL}/admin/swag/products`;
+        ? `${API_BASE_URL}/api/admin/swag/products/${editingProduct.id}`
+        : `${API_BASE_URL}/api/admin/swag/products`;
       const method = editingProduct ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -133,12 +145,14 @@ export const SwagStoreManagement: React.FC = () => {
   const handleDeleteProduct = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this merchandise product?')) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/swag/products/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/swag/products/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         fetchData();
+      } else {
+        alert(await readError(res, 'Failed to delete product'));
       }
     } catch (err) {
       console.error('Delete error:', err);
@@ -147,7 +161,7 @@ export const SwagStoreManagement: React.FC = () => {
 
   const handleUpdateOrderStatus = async (orderId: number, status: RedemptionStatus) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/swag/redemptions/${orderId}/status`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/swag/redemptions/${orderId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -155,9 +169,10 @@ export const SwagStoreManagement: React.FC = () => {
         },
         body: JSON.stringify({ status })
       });
-      if (res.ok) {
-        fetchData();
+      if (!res.ok) {
+        alert(await readError(res, 'Failed to update order status'));
       }
+      fetchData();
     } catch (err) {
       console.error('Status update failed:', err);
     }
@@ -168,7 +183,7 @@ export const SwagStoreManagement: React.FC = () => {
     if (!rejectingOrder) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/swag/redemptions/${rejectingOrder.id}/reject`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/swag/redemptions/${rejectingOrder.id}/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -179,6 +194,8 @@ export const SwagStoreManagement: React.FC = () => {
       if (res.ok) {
         setRejectingOrder(null);
         fetchData();
+      } else {
+        alert(await readError(res, 'Failed to reject order'));
       }
     } catch (err) {
       console.error('Reject order failed:', err);
@@ -307,15 +324,15 @@ export const SwagStoreManagement: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <select
                           value={order.status}
-                          disabled={order.status === 'Rejected'}
+                          disabled={order.status === 'Rejected' || order.status === 'Delivered'}
                           onChange={e => handleUpdateOrderStatus(order.id, e.target.value as RedemptionStatus)}
                           className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none"
                         >
-                          <option value="Pending">Pending</option>
-                          <option value="Approved">Approved</option>
-                          <option value="Processing">Processing</option>
-                          <option value="Ready for Collection">Ready for Collection</option>
-                          <option value="Delivered">Delivered</option>
+                          {ORDER_FLOW.map((step, i) => (
+                            <option key={step} value={step} disabled={i < ORDER_FLOW.indexOf(order.status)}>
+                              {step}
+                            </option>
+                          ))}
                           {order.status === 'Rejected' && <option value="Rejected">Rejected</option>}
                         </select>
                       </td>

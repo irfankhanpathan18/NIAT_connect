@@ -52,7 +52,7 @@ export const ReferralManagement: React.FC = () => {
   const fetchReferrals = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/admin/referrals`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/referrals`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -71,7 +71,7 @@ export const ReferralManagement: React.FC = () => {
   const handleApprove = async (id: number) => {
     try {
       setProcessingId(id);
-      const res = await fetch(`${API_BASE_URL}/admin/referrals/${id}/approve`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/referrals/${id}/approve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,7 +98,7 @@ export const ReferralManagement: React.FC = () => {
 
     try {
       setProcessingId(rejectingItem.id);
-      const res = await fetch(`${API_BASE_URL}/admin/referrals/${rejectingItem.id}/reject`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/referrals/${rejectingItem.id}/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +124,7 @@ export const ReferralManagement: React.FC = () => {
     e.preventDefault();
     try {
       setSavingSettings(true);
-      const res = await fetch(`${API_BASE_URL}/admin/referrals/settings`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/referrals/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

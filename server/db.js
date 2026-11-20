@@ -127,6 +127,20 @@ class DatabaseManager {
   save() {
     saveToDisk();
   }
+
+  // Runs fn inside BEGIN/COMMIT; rolls back every write if fn throws.
+  transaction(fn) {
+    this.rawDb.exec('BEGIN');
+    try {
+      const result = fn();
+      this.rawDb.exec('COMMIT');
+      debouncedSave();
+      return result;
+    } catch (err) {
+      this.rawDb.exec('ROLLBACK');
+      throw err;
+    }
+  }
 }
 
 const dbManager = new DatabaseManager();
