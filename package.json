@@ -11,7 +11,13 @@
     "preview": "vite preview",
     "test": "node --test \"server/tests/*.test.js\""
   },
-  "keywords": ["niat", "admission", "crm", "ai", "student-portal"],
+  "keywords": [
+    "niat",
+    "admission",
+    "crm",
+    "ai",
+    "student-portal"
+  ],
   "author": "NIAT",
   "license": "ISC",
   "type": "commonjs",
