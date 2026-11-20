@@ -47,7 +47,7 @@ export const SwagStore: React.FC = () => {
   const fetchStoreData = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/student/swag/products`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/swag/products`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -66,7 +66,7 @@ export const SwagStore: React.FC = () => {
 
   const fetchRedemptions = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/student/swag/my-redemptions`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/swag/my-redemptions`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -92,7 +92,7 @@ export const SwagStore: React.FC = () => {
       setIsSubmitting(true);
       setActionError(null);
 
-      const res = await fetch(`${API_BASE_URL}/student/swag/redeem`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/swag/redeem`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

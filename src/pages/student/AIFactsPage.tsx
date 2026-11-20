@@ -34,7 +34,7 @@ export const AIFactsPage: React.FC = () => {
 
   const fetchTodayFact = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/student/ai-facts/today`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/ai-facts/today`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -55,7 +55,7 @@ export const AIFactsPage: React.FC = () => {
       if (searchQuery) params.append('search', searchQuery);
       if (bookmarkedOnly) params.append('bookmarkedOnly', 'true');
 
-      const res = await fetch(`${API_BASE_URL}/student/ai-facts?${params.toString()}`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/ai-facts?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -80,7 +80,7 @@ export const AIFactsPage: React.FC = () => {
 
   const handleToggleBookmark = async (factId: number) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/student/ai-facts/${factId}/bookmark`, {
+      const res = await fetch(`${API_BASE_URL}/api/student/ai-facts/${factId}/bookmark`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });

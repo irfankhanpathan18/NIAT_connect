@@ -49,7 +49,7 @@ export const AIFactsManagement: React.FC = () => {
   const fetchFacts = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/admin/ai-facts`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/ai-facts`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -99,7 +99,7 @@ export const AIFactsManagement: React.FC = () => {
   const handleGenerateAIDraft = async () => {
     try {
       setIsGeneratingDraft(true);
-      const res = await fetch(`${API_BASE_URL}/admin/ai-facts/generate-draft`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/ai-facts/generate-draft`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -133,8 +133,8 @@ export const AIFactsManagement: React.FC = () => {
     e.preventDefault();
     try {
       const url = editingFact
-        ? `${API_BASE_URL}/admin/ai-facts/${editingFact.id}`
-        : `${API_BASE_URL}/admin/ai-facts`;
+        ? `${API_BASE_URL}/api/admin/ai-facts/${editingFact.id}`
+        : `${API_BASE_URL}/api/admin/ai-facts`;
       const method = editingFact ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -160,7 +160,7 @@ export const AIFactsManagement: React.FC = () => {
 
   const handleTogglePublish = async (f: AIFactItem) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/ai-facts/${f.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/ai-facts/${f.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -177,7 +177,7 @@ export const AIFactsManagement: React.FC = () => {
   const handleDeleteFact = async (id: number) => {
     if (!window.confirm('Delete this AI fact permanently?')) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/ai-facts/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/ai-facts/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });

@@ -31,9 +31,10 @@ function getStudentReferralBalance(studentId) {
   `).get(studentId);
   const totalEarned = earnedRes ? Number(earnedRes.total) : 0;
 
-  // Total points redeemed in Swag Store (negative transactions)
+  // Total points redeemed in Swag Store (stored as negative transactions).
+  // Sum each row's absolute value, so a mis-signed entry still counts as spent and can never shrink the total.
   const redeemedRes = db.prepare(`
-    SELECT COALESCE(ABS(SUM(points)), 0) as total
+    SELECT COALESCE(SUM(ABS(points)), 0) as total
     FROM reward_transactions
     WHERE student_id = ?
       AND status = 'COMPLETED'

@@ -20,6 +20,18 @@ import { API_BASE_URL } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import { SwagProductItem, SwagRedemptionItem, RedemptionStatus } from '../../types';
 
+// Orders only move forward through these stages (the server enforces the same rule).
+const ORDER_FLOW: RedemptionStatus[] = ['Pending', 'Approved', 'Processing', 'Ready for Collection', 'Delivered'];
+
+const readError = async (res: Response, fallback: string) => {
+  try {
+    const data = await res.json();
+    return data.error || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export const SwagStoreManagement: React.FC = () => {
   const { token } = useAuth();
   const [products, setProducts] = useState<SwagProductItem[]>([]);
@@ -31,7 +43,15 @@ export const SwagStoreManagement: React.FC = () => {
   // Product Modal State
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<SwagProductItem | null>(null);
-  const [productForm, setProductForm] = useState({
+  const [productForm, setProductForm] = useState<{
+    name: string;
+    description: string;
+    category: string;
+    points_required: number | string;
+    stock: number | string;
+    image_url: string;
+    status: string;
+  }>({
     name: '',
     description: '',
     category: 'Apparel',
@@ -40,6 +60,9 @@ export const SwagStoreManagement: React.FC = () => {
     image_url: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500',
     status: 'ACTIVE'
   });
+
+  const [productError, setProductError] = useState<string | null>(null);
+  const [savingProduct, setSavingProduct] = useState(false);
 
   // Reject Order Modal
   const [rejectingOrder, setRejectingOrder] = useState<SwagRedemptionItem | null>(null);
@@ -53,8 +76,8 @@ export const SwagStoreManagement: React.FC = () => {
     try {
       setLoading(true);
       const [prodRes, redRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/admin/swag/products`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE_URL}/admin/swag/redemptions`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${API_BASE_URL}/api/admin/swag/products`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/api/admin/swag/redemptions`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
       if (prodRes.ok) {
@@ -84,6 +107,7 @@ export const SwagStoreManagement: React.FC = () => {
       image_url: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500',
       status: 'ACTIVE'
     });
+    setProductError(null);
     setShowProductModal(true);
   };
 
@@ -98,15 +122,30 @@ export const SwagStoreManagement: React.FC = () => {
       image_url: p.image_url,
       status: p.status
     });
+    setProductError(null);
     setShowProductModal(true);
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (savingProduct) return;
+
+    const points = Number(productForm.points_required);
+    const stock = Number(productForm.stock);
+    if (!productForm.name.trim()) return setProductError('Please enter a product name.');
+    if (productForm.points_required === '' || !Number.isInteger(points) || points < 1) {
+      return setProductError('Required points must be a whole number of at least 1.');
+    }
+    if (productForm.stock === '' || !Number.isInteger(stock) || stock < 0) {
+      return setProductError('Stock must be a whole number of 0 or more.');
+    }
+
+    setProductError(null);
+    setSavingProduct(true);
     try {
       const url = editingProduct
-        ? `${API_BASE_URL}/admin/swag/products/${editingProduct.id}`
-        : `${API_BASE_URL}/admin/swag/products`;
+        ? `${API_BASE_URL}/api/admin/swag/products/${editingProduct.id}`
+        : `${API_BASE_URL}/api/admin/swag/products`;
       const method = editingProduct ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -115,30 +154,40 @@ export const SwagStoreManagement: React.FC = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(productForm)
+        body: JSON.stringify({
+          ...productForm,
+          name: productForm.name.trim(),
+          points_required: points,
+          stock,
+          image_url: productForm.image_url.trim()
+        })
       });
 
       if (res.ok) {
         setShowProductModal(false);
         fetchData();
       } else {
-        const data = await res.json();
-        alert(data.error || 'Failed to save product');
+        setProductError(await readError(res, `Failed to save product (server returned ${res.status}).`));
       }
     } catch (err: any) {
-      alert('Error saving product: ' + err.message);
+      setProductError('Could not reach the server. Check your connection and try again.');
+      console.error('Save product failed:', err);
+    } finally {
+      setSavingProduct(false);
     }
   };
 
   const handleDeleteProduct = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this merchandise product?')) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/swag/products/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/swag/products/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         fetchData();
+      } else {
+        alert(await readError(res, 'Failed to delete product'));
       }
     } catch (err) {
       console.error('Delete error:', err);
@@ -147,7 +196,7 @@ export const SwagStoreManagement: React.FC = () => {
 
   const handleUpdateOrderStatus = async (orderId: number, status: RedemptionStatus) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/swag/redemptions/${orderId}/status`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/swag/redemptions/${orderId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -155,9 +204,10 @@ export const SwagStoreManagement: React.FC = () => {
         },
         body: JSON.stringify({ status })
       });
-      if (res.ok) {
-        fetchData();
+      if (!res.ok) {
+        alert(await readError(res, 'Failed to update order status'));
       }
+      fetchData();
     } catch (err) {
       console.error('Status update failed:', err);
     }
@@ -168,7 +218,7 @@ export const SwagStoreManagement: React.FC = () => {
     if (!rejectingOrder) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/swag/redemptions/${rejectingOrder.id}/reject`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/swag/redemptions/${rejectingOrder.id}/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -179,6 +229,8 @@ export const SwagStoreManagement: React.FC = () => {
       if (res.ok) {
         setRejectingOrder(null);
         fetchData();
+      } else {
+        alert(await readError(res, 'Failed to reject order'));
       }
     } catch (err) {
       console.error('Reject order failed:', err);
@@ -307,15 +359,15 @@ export const SwagStoreManagement: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <select
                           value={order.status}
-                          disabled={order.status === 'Rejected'}
+                          disabled={order.status === 'Rejected' || order.status === 'Delivered'}
                           onChange={e => handleUpdateOrderStatus(order.id, e.target.value as RedemptionStatus)}
                           className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none"
                         >
-                          <option value="Pending">Pending</option>
-                          <option value="Approved">Approved</option>
-                          <option value="Processing">Processing</option>
-                          <option value="Ready for Collection">Ready for Collection</option>
-                          <option value="Delivered">Delivered</option>
+                          {ORDER_FLOW.map((step, i) => (
+                            <option key={step} value={step} disabled={i < ORDER_FLOW.indexOf(order.status)}>
+                              {step}
+                            </option>
+                          ))}
                           {order.status === 'Rejected' && <option value="Rejected">Rejected</option>}
                         </select>
                       </td>
@@ -455,7 +507,7 @@ export const SwagStoreManagement: React.FC = () => {
                     min="1"
                     required
                     value={productForm.points_required}
-                    onChange={e => setProductForm({ ...productForm, points_required: parseInt(e.target.value, 10) })}
+                    onChange={e => setProductForm({ ...productForm, points_required: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
                   />
                 </div>
@@ -469,7 +521,7 @@ export const SwagStoreManagement: React.FC = () => {
                     min="0"
                     required
                     value={productForm.stock}
-                    onChange={e => setProductForm({ ...productForm, stock: parseInt(e.target.value, 10) })}
+                    onChange={e => setProductForm({ ...productForm, stock: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
                   />
                 </div>
@@ -497,6 +549,13 @@ export const SwagStoreManagement: React.FC = () => {
                 />
               </div>
 
+              {productError && (
+                <div role="alert" className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{productError}</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -507,9 +566,10 @@ export const SwagStoreManagement: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/20"
+                  disabled={savingProduct}
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-wait text-white text-xs font-bold shadow-md shadow-blue-600/20"
                 >
-                  Save Product
+                  {savingProduct ? 'Saving…' : 'Save Product'}
                 </button>
               </div>
             </form>
